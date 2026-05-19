@@ -1,3 +1,13 @@
+export type DiscordActivityPayload = {
+  animeTitle: string
+  episodeNumber: number
+  currentTime: string
+  duration: string
+  currentTimeSeconds: number
+  durationSeconds: number
+  isPlaying: boolean
+}
+
 export type ElectronAPI = {
   selectFolder: () => Promise<string | null>
   scanFolder: (path: string) => Promise<{
@@ -23,6 +33,12 @@ export type ElectronAPI = {
   saveSkipData: (data: Record<string, any>) => Promise<Record<string, any>>
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
+  discord: {
+    connect: () => Promise<boolean>
+    updateActivity: (payload: DiscordActivityPayload) => Promise<void>
+    clearActivity: () => Promise<void>
+    disconnect: () => Promise<void>
+  }
 }
 
 declare global {

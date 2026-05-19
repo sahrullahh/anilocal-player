@@ -31,6 +31,16 @@ export type LibraryRecord = {
   }>
 }
 
+export type DiscordActivityPayload = {
+  animeTitle: string
+  episodeNumber: number
+  currentTime: string
+  duration: string
+  currentTimeSeconds: number
+  durationSeconds: number
+  isPlaying: boolean
+}
+
 export interface API {
   selectFolder: () => Promise<string | null>
   scanFolder: (path: string) => Promise<{
@@ -46,6 +56,12 @@ export interface API {
   saveSkipData: (data: Record<string, SkipEntry>) => Promise<Record<string, SkipEntry>>
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
+  discord: {
+    connect: () => Promise<boolean>
+    updateActivity: (payload: DiscordActivityPayload) => Promise<void>
+    clearActivity: () => Promise<void>
+    disconnect: () => Promise<void>
+  }
 }
 
 declare global {

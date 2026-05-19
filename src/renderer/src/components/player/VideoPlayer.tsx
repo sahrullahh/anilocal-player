@@ -8,6 +8,9 @@ import { SkipOverlay } from './SkipOverlay'
 import { AutoplayCountdown } from './AutoplayCountdown'
 import { EmptyState } from '../common/EmptyState'
 import type { SkipTimestamps } from '../../types/anime'
+import type { DiscordActivityPayload } from '../../types/electron-api'
+import { useEffect, useRef } from 'react'
+import { formatTime } from '../../utils/time'
 
 export function VideoPlayer() {
   const { currentEpisode, skipData, updateSkipData } = usePlayerStore()
@@ -37,6 +40,7 @@ export function VideoPlayer() {
   )
 
   const { countdown, cancelAutoplay } = useAutoplay(videoRef)
+  const lastPresenceUpdateRef = useRef(0)
 
   useKeyboardShortcuts({
     togglePlay,
@@ -53,6 +57,74 @@ export function VideoPlayer() {
       }
     }
   })
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const handleClick = () => togglePlay()
+    video.addEventListener('click', handleClick)
+
+    return () => video.removeEventListener('click', handleClick)
+  }, [videoRef, togglePlay])
+
+  const parseEpisodeNumber = (title: string): number => {
+    const match = title.match(/(?:ep(?:isode)?\s*)(\d+)/i) || title.match(/(\d+)/)
+    return match ? Number(match[1]) : 1
+  }
+
+  const syncDiscordPresence = async (
+    playing: boolean,
+    force = false,
+    timeOverride?: number,
+    durationOverride?: number
+  ) => {
+    if (!currentEpisode) return
+
+    const now = Date.now()
+    if (!force && now - lastPresenceUpdateRef.current < 15000) return
+
+    const safeCurrentTime = Math.max(0, timeOverride ?? currentTime)
+    const safeDuration = Math.max(0, durationOverride ?? duration)
+
+    const payload: DiscordActivityPayload = {
+      animeTitle: currentEpisode.folderPath.split(/[\\/]/).pop() || currentEpisode.title,
+      episodeNumber: parseEpisodeNumber(currentEpisode.title),
+      currentTime: formatTime(safeCurrentTime),
+      duration: formatTime(safeDuration),
+      currentTimeSeconds: safeCurrentTime,
+      durationSeconds: safeDuration,
+      isPlaying: playing
+    }
+
+    try {
+      await window.api.discord.updateActivity(payload)
+      lastPresenceUpdateRef.current = now
+    } catch (error) {
+      console.warn('Failed to sync Discord presence', error)
+    }
+  }
+
+  useEffect(() => {
+    window.api.discord.connect().catch((error) => {
+      console.warn('Discord RPC connect warning', error)
+    })
+
+    return () => {
+      window.api.discord.clearActivity().catch(() => undefined)
+      window.api.discord.disconnect().catch(() => undefined)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!currentEpisode) {
+      window.api.discord.clearActivity().catch(() => undefined)
+      lastPresenceUpdateRef.current = 0
+      return
+    }
+
+    void syncDiscordPresence(isPlaying, true)
+  }, [currentEpisode])
 
   const handleSkipDataSave = async (newSkipData: SkipTimestamps) => {
     if (currentEpisode) {
@@ -92,10 +164,32 @@ export function VideoPlayer() {
       <video
         ref={videoRef}
         src={videoSrc}
-        onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={onLoadedMetadata}
-        onPlay={onPlay}
-        onPause={onPause}
+        onPlay={() => {
+          onPlay()
+          const video = videoRef.current
+          void syncDiscordPresence(true, true, video?.currentTime ?? currentTime, video?.duration ?? duration)
+        }}
+        onPause={() => {
+          onPause()
+          const video = videoRef.current
+          void syncDiscordPresence(
+            false,
+            true,
+            video?.currentTime ?? currentTime,
+            video?.duration ?? duration
+          )
+        }}
+        onTimeUpdate={() => {
+          const video = videoRef.current
+          onTimeUpdate()
+          void syncDiscordPresence(
+            isPlaying,
+            false,
+            video?.currentTime ?? currentTime,
+            video?.duration ?? duration
+          )
+        }}
         onError={onError}
         className="w-full h-full"
       >

@@ -12,7 +12,7 @@ interface SettingsState {
   setIsMute: (mute: boolean) => void
   setTheme: (theme: 'dark' | 'light') => void
   setAutoplay: (autoplay: boolean) => void
-}
+}5
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
@@ -33,3 +33,5 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 )
+
+export type { SettingsState }

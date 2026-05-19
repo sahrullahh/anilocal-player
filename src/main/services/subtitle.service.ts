@@ -2,10 +2,6 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 
-function formatTimestamp(value: string): string {
-  return value.replace(',', '.')
-}
-
 export async function convertSrtToVtt(filePath: string): Promise<string> {
   const content = await fs.readFile(filePath, 'utf-8')
   const normalized = content.replace(/\r/g, '')

@@ -32,6 +32,16 @@ export type LibraryRecord = {
   }>
 }
 
+export type DiscordActivityPayload = {
+  animeTitle: string
+  episodeNumber: number
+  currentTime: string
+  duration: string
+  currentTimeSeconds: number
+  durationSeconds: number
+  isPlaying: boolean
+}
+
 const api = {
   selectFolder: () => ipcRenderer.invoke('folder:select'),
   scanFolder: (path: string) => ipcRenderer.invoke('folder:scan', path),
@@ -44,7 +54,14 @@ const api = {
   saveSkipData: (data: Record<string, SkipEntry>) =>
     ipcRenderer.invoke('storage:saveSkipData', data),
   convertSrtToVtt: (path: string) => ipcRenderer.invoke('subtitle:convertSrtToVtt', path),
-  toFileUrl: (path: string) => ipcRenderer.invoke('subtitle:toFileUrl', path)
+  toFileUrl: (path: string) => ipcRenderer.invoke('subtitle:toFileUrl', path),
+  discord: {
+    connect: () => ipcRenderer.invoke('discord:connect'),
+    updateActivity: (payload: DiscordActivityPayload) =>
+      ipcRenderer.invoke('discord:updateActivity', payload),
+    clearActivity: () => ipcRenderer.invoke('discord:clearActivity'),
+    disconnect: () => ipcRenderer.invoke('discord:disconnect')
+  }
 }
 
 if (process.contextIsolated) {
