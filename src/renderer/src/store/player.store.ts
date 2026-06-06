@@ -24,6 +24,7 @@ interface PlayerState {
   // Control
   setIsPlaying: (playing: boolean) => void
   setAutoplayDelay: (delay: boolean) => void
+  resetPlayer: () => void
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -112,5 +113,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setIsPlaying: (playing) => set({ isPlaying: playing }),
 
-  setAutoplayDelay: (delay) => set({ isAutoplayDelay: delay })
+  setAutoplayDelay: (delay) => set({ isAutoplayDelay: delay }),
+
+  resetPlayer: () =>
+    set({
+      currentEpisode: null,
+      playlist: [],
+      isPlaying: false,
+      isAutoplayDelay: false
+    })
 }))

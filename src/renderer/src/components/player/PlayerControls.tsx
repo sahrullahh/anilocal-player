@@ -65,16 +65,18 @@ export function PlayerControls({
     setIsSkipEditOpen(false)
   }
 
-  return (
+  return ( 
     <>
-      <div className="absolute bottom-5 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-8">
-        {/* Video title */}
-        {videoTitle && (
-          <p className="text-lg text-white/90 font-medium truncate mb-2 drop-shadow">
+      {/* Video title - top left */}
+      {videoTitle && (
+        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent px-4 pt-4 pb-8 pointer-events-none">
+          <p className="text-sm text-white/90 font-medium truncate drop-shadow max-w-lg">
             {videoTitle}
           </p>
-        )}
+        </div>
+      )}
 
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-8">
         {/* Progress bar */}
         <div
           className="w-full h-1 bg-dark-700 rounded-full cursor-pointer hover:h-2 transition-all mb-4 group"

@@ -5,7 +5,15 @@ import { Button } from '../common/Button'
 import { EmptyState } from '../common/EmptyState'
 import { SettingsModal } from '../settings/SettingsModal'
 
-export function LibrarySidebar({ onClose }: { onClose?: () => void }) {
+export function LibrarySidebar({
+  onClose,
+  onSelectAnime,
+  onRemoveAnime
+}: {
+  onClose?: () => void
+  onSelectAnime?: () => void
+  onRemoveAnime?: (remainingCount: number) => void
+}) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const {
     libraries,
@@ -16,7 +24,7 @@ export function LibrarySidebar({ onClose }: { onClose?: () => void }) {
     setCurrentAnime,
     removeLibrary
   } = useLibraryStore()
-  const { setPlaylist } = usePlayerStore()
+  const { setPlaylist, resetPlayer } = usePlayerStore()
 
   useEffect(() => {
     loadLibrary()
@@ -24,8 +32,21 @@ export function LibrarySidebar({ onClose }: { onClose?: () => void }) {
 
   const handleSelectAnime = (anime: typeof currentAnime) => {
     if (!anime) return
+    resetPlayer()
     setCurrentAnime(anime)
     setPlaylist(anime.episodes)
+    onSelectAnime?.()
+  }
+
+  const handleRemoveAnime = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    const remaining = libraries.filter((lib) => lib.id !== id)
+    // If the removed folder was the active one, reset the player
+    if (currentAnime?.id === id) {
+      resetPlayer()
+    }
+    removeLibrary(id)
+    onRemoveAnime?.(remaining.length)
   }
 
   return (
@@ -96,7 +117,7 @@ export function LibrarySidebar({ onClose }: { onClose?: () => void }) {
                   />
                 </svg>
               }
-              title="No anime folders"
+              title="No video folders"
               description="Add a folder to start watching"
             />
           ) : (
@@ -123,10 +144,7 @@ export function LibrarySidebar({ onClose }: { onClose?: () => void }) {
                       </p>
                     </div>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeLibrary(anime.id)
-                      }}
+                      onClick={(e) => handleRemoveAnime(e, anime.id)}
                       className="opacity-0 group-hover:opacity-100 ml-2 p-1 hover:bg-red-600 rounded transition-all"
                       title="Remove"
                     >

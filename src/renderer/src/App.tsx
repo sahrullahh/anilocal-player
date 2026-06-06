@@ -60,7 +60,18 @@ function App(): React.JSX.Element {
   return (
     <div className="w-screen h-screen bg-dark-950 text-white flex overflow-hidden dark">
       {/* Left Sidebar - Library */}
-      {showLibrary && <LibrarySidebar onClose={() => setShowLibrary(false)} />}
+      {showLibrary && (
+        <LibrarySidebar
+          onClose={() => setShowLibrary(false)}
+          onSelectAnime={() => setShowEpisodes(true)}
+          onRemoveAnime={(remaining) => {
+            // If no folders left, close episode panel. Otherwise keep library open.
+            if (remaining === 0) {
+              setShowEpisodes(false)
+            }
+          }}
+        />
+      )}
 
       {/* Center - Video Player */}
       <VideoPlayer

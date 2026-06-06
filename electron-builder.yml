@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: media-player
+appId: com.electron.anilocal
+productName: Anilocal Player
 directories:
   buildResources: build
 files:
@@ -11,8 +11,26 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+fileAssociations:
+  - ext: mp4
+    name: MP4 Video
+    description: MP4 Video File
+    role: Viewer
+  - ext: mkv
+    name: MKV Video
+    description: Matroska Video File
+    role: Viewer
+  - ext: webm
+    name: WebM Video
+    description: WebM Video File
+    role: Viewer
+  - ext: avi
+    name: AVI Video
+    description: AVI Video File
+    role: Viewer
 win:
-  executableName: media-player
+  executableName: anilocal-player
+  icon: resources/icon.png
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
