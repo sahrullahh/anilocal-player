@@ -2,7 +2,7 @@ import { usePlayerStore } from '../../store/player.store'
 import { EmptyState } from '../common/EmptyState'
 import type { Episode } from '../../types/anime'
 
-export function EpisodeList() {
+export function EpisodeList({ onClose }: { onClose?: () => void }) {
   const { playlist, currentEpisode, playEpisode, progressData } = usePlayerStore()
 
   const getProgress = (episode: Episode) => {
@@ -15,30 +15,61 @@ export function EpisodeList() {
 
   if (playlist.length === 0) {
     return (
-      <div className="h-full bg-dark-900">
-        <EmptyState
-          icon={
-            <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
-          }
-          title="No episodes"
-          description="Select an anime from the library"
-        />
+      <div className="w-80 bg-dark-900 border-l border-dark-800 flex flex-col h-full">
+        <div className="p-4 border-b border-dark-800 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Episodes</h2>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1 rounded text-gray-500 hover:text-white hover:bg-dark-800 transition-colors"
+              title="Close episodes"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="flex-1">
+          <EmptyState
+            icon={
+              <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
+              </svg>
+            }
+            title="No episodes"
+            description="Select an anime from the library"
+          />
+        </div>
       </div>
     )
   }
 
   return (
     <div className="w-80 bg-dark-900 border-l border-dark-800 flex flex-col h-full">
-      <div className="p-4 border-b border-dark-800">
-        <h2 className="text-lg font-semibold text-white">Episodes</h2>
-        <p className="text-sm text-gray-500 mt-1">{playlist.length} episodes</p>
+      <div className="p-4 border-b border-dark-800 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Episodes</h2>
+          <p className="text-sm text-gray-500 mt-1">{playlist.length} episodes</p>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded text-gray-500 hover:text-white hover:bg-dark-800 transition-colors"
+            title="Close episodes"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">

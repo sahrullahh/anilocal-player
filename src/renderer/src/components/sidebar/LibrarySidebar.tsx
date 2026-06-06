@@ -5,7 +5,7 @@ import { Button } from '../common/Button'
 import { EmptyState } from '../common/EmptyState'
 import { SettingsModal } from '../settings/SettingsModal'
 
-export function LibrarySidebar() {
+export function LibrarySidebar({ onClose }: { onClose?: () => void }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const {
     libraries,
@@ -32,7 +32,21 @@ export function LibrarySidebar() {
     <>
       <div className="w-64 bg-dark-900 border-r border-dark-800 flex flex-col h-full">
         <div className="p-4 border-b border-dark-800">
-          <h1 className="text-sm font-semibold text-white">Anilocal Player</h1>
+          <div className="flex items-center justify-between mb-1">
+            <h1 className="text-sm font-semibold text-white">Anilocal Player</h1>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1 rounded text-gray-500 hover:text-white hover:bg-dark-800 transition-colors"
+                title="Close library"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="flex items-center justify-between gap-2 mb-3">
             <h2 className="text-lg font-semibold text-white">Library</h2>
             <button

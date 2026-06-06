@@ -10,6 +10,7 @@ export type DiscordActivityPayload = {
 
 export type ElectronAPI = {
   selectFolder: () => Promise<string | null>
+  selectFile: () => Promise<string | null>
   scanFolder: (path: string) => Promise<{
     name: string
     path: string
@@ -33,9 +34,11 @@ export type ElectronAPI = {
   saveSkipData: (data: Record<string, any>) => Promise<Record<string, any>>
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
+  onOpenFile: (callback: (filePath: string) => void) => () => void
   discord: {
     connect: () => Promise<boolean>
     updateActivity: (payload: DiscordActivityPayload) => Promise<void>
+    setIdleActivity: () => Promise<void>
     clearActivity: () => Promise<void>
     disconnect: () => Promise<void>
   }

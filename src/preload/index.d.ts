@@ -43,6 +43,7 @@ export type DiscordActivityPayload = {
 
 export interface API {
   selectFolder: () => Promise<string | null>
+  selectFile: () => Promise<string | null>
   scanFolder: (path: string) => Promise<{
     name: string
     path: string
@@ -56,9 +57,11 @@ export interface API {
   saveSkipData: (data: Record<string, SkipEntry>) => Promise<Record<string, SkipEntry>>
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
+  onOpenFile: (callback: (filePath: string) => void) => () => void
   discord: {
     connect: () => Promise<boolean>
     updateActivity: (payload: DiscordActivityPayload) => Promise<void>
+    setIdleActivity: () => Promise<void>
     clearActivity: () => Promise<void>
     disconnect: () => Promise<void>
   }

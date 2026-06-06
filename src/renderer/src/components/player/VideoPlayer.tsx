@@ -2,24 +2,39 @@ import { useVideoPlayer } from '../../hooks/useVideoPlayer'
 import { useSubtitle } from '../../hooks/useSubtitle'
 import { useAutoplay } from '../../hooks/useAutoplay'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
+import { useIdleMouseHide } from '../../hooks/useIdleMouseHide'
 import { usePlayerStore } from '../../store/player.store'
+import { useLibraryStore } from '../../store/library.store'
 import { PlayerControls } from './PlayerControls'
 import { SkipOverlay } from './SkipOverlay'
 import { AutoplayCountdown } from './AutoplayCountdown'
-import { EmptyState } from '../common/EmptyState'
 import type { SkipTimestamps } from '../../types/anime'
 import type { DiscordActivityPayload } from '../../types/electron-api'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { formatTime } from '../../utils/time'
+import { v4 as uuidv4 } from 'uuid'
+import type { Anime } from '../../types/anime'
 
-export function VideoPlayer() {
-  const { currentEpisode, skipData, updateSkipData } = usePlayerStore()
+export function VideoPlayer({
+  showLibrary,
+  showEpisodes,
+  onToggleLibrary,
+  onToggleEpisodes
+}: {
+  showLibrary: boolean
+  showEpisodes: boolean
+  onToggleLibrary: () => void
+  onToggleEpisodes: () => void
+}) {
+  const { currentEpisode, skipData, updateSkipData, playEpisode, setPlaylist } = usePlayerStore()
+  const { addFolder } = useLibraryStore()
   const {
     videoRef,
     videoSrc,
     currentTime,
     duration,
     isPlaying,
+    isFullscreen,
     volume,
     isMute,
     setVolume,
@@ -40,6 +55,7 @@ export function VideoPlayer() {
   )
 
   const { countdown, cancelAutoplay } = useAutoplay(videoRef)
+  const { controlsVisible } = useIdleMouseHide(isFullscreen)
   const lastPresenceUpdateRef = useRef(0)
 
   useKeyboardShortcuts({
@@ -110,15 +126,12 @@ export function VideoPlayer() {
       console.warn('Discord RPC connect warning', error)
     })
 
-    return () => {
-      window.api.discord.clearActivity().catch(() => undefined)
-      window.api.discord.disconnect().catch(() => undefined)
-    }
+    void window.api.discord.setIdleActivity().catch(() => undefined)
   }, [])
 
   useEffect(() => {
     if (!currentEpisode) {
-      window.api.discord.clearActivity().catch(() => undefined)
+      void window.api.discord.setIdleActivity().catch(() => undefined)
       lastPresenceUpdateRef.current = 0
       return
     }
@@ -132,29 +145,112 @@ export function VideoPlayer() {
     }
   }
 
+  const handleOpenFile = useCallback(async () => {
+    try {
+      const filePath = await window.api.selectFile()
+      if (!filePath) return
+
+      const folderPath = filePath.substring(
+        0,
+        Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
+      )
+      const scanResult = await window.api.scanFolder(folderPath)
+
+      const anime: Anime = {
+        id: uuidv4(),
+        name: scanResult.name,
+        path: scanResult.path,
+        episodes: scanResult.episodes
+      }
+
+      setPlaylist(anime.episodes)
+      const target = anime.episodes.find((ep) => ep.filePath === filePath) ?? anime.episodes[0]
+      if (target) playEpisode(target)
+    } catch (err) {
+      console.error('Failed to open file', err)
+    }
+  }, [playEpisode, setPlaylist])
+
   if (!currentEpisode) {
     return (
-      <div className="flex-1 bg-dark-950 flex items-center justify-center">
-        <EmptyState
-          icon={
-            <svg className="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="flex-1 bg-dark-950 flex flex-col items-center justify-center gap-8 select-none">
+        {/* App logo / icon */}
+        <div className="flex flex-col items-center gap-3 text-gray-600">
+          <svg className="w-20 h-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <h1 className="text-2xl font-semibold text-gray-400 tracking-wide">Anilocal Player</h1>
+          <p className="text-sm text-gray-600">No video playing</p>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          {/* Open File */}
+          <button
+            type="button"
+            onClick={handleOpenFile}
+            className="flex items-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-lg shadow-blue-900/30 min-w-44 justify-center"
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                strokeWidth={2}
+                d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
               />
             </svg>
-          }
-          title="No episode selected"
-          description="Select an episode from the list to start watching"
-        />
+            Open File
+          </button>
+
+          {/* Open Library */}
+          <button
+            type="button"
+            onClick={onToggleLibrary}
+            className="flex items-center gap-3 px-6 py-3 bg-dark-800 hover:bg-dark-700 active:bg-dark-900 text-gray-200 rounded-xl font-medium transition-colors border border-dark-700 min-w-44 justify-center"
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+              />
+            </svg>
+            Browse Library
+          </button>
+
+          {/* Add Folder */}
+          <button
+            type="button"
+            onClick={addFolder}
+            className="flex items-center gap-3 px-6 py-3 bg-dark-800 hover:bg-dark-700 active:bg-dark-900 text-gray-200 rounded-xl font-medium transition-colors border border-dark-700 min-w-44 justify-center"
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Add Folder
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-700 mt-2">
+          Developed by Mohammad Sahrullah. Powered by AI.
+        </p>
       </div>
     )
   }
@@ -204,8 +300,19 @@ export function VideoPlayer() {
         )}
       </video>
 
-      {/* Overlay on hover */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Overlay: always visible when paused, hover-based when playing outside fullscreen, idle-timer-based when playing in fullscreen */}
+      <div
+        className={[
+          'absolute inset-0 transition-opacity duration-300',
+          !isPlaying
+            ? 'opacity-100'
+            : isFullscreen
+              ? controlsVisible
+                ? 'opacity-100'
+                : 'opacity-0 pointer-events-none'
+              : 'opacity-0 group-hover:opacity-100'
+        ].join(' ')}
+      >
         <PlayerControls
           currentTime={currentTime}
           duration={duration}
@@ -215,6 +322,9 @@ export function VideoPlayer() {
           subtitles={currentEpisode.subtitles}
           selectedSubtitle={selectedSubtitle}
           skipData={skipData?.[currentEpisode.filePath]}
+          videoTitle={currentEpisode.fileName}
+          showLibrary={showLibrary}
+          showEpisodes={showEpisodes}
           onPlayPause={togglePlay}
           onSeek={setSeek}
           onVolumeChange={setVolume}
@@ -222,8 +332,13 @@ export function VideoPlayer() {
           onSubtitleSelect={setSelectedSubtitle}
           onFullscreen={toggleFullscreen}
           onSkipDataSave={handleSkipDataSave}
+          onToggleLibrary={onToggleLibrary}
+          onToggleEpisodes={onToggleEpisodes}
         />
       </div>
+
+      {/* Cursor: hide only when playing and controls are hidden in fullscreen */}
+      <style>{isFullscreen && isPlaying && !controlsVisible ? `* { cursor: none !important; }` : ''}</style>
 
       <SkipOverlay
         currentTime={currentTime}

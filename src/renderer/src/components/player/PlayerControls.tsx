@@ -14,6 +14,9 @@ type PlayerControlsProps = {
   subtitles: Subtitle[]
   selectedSubtitle: Subtitle | null
   skipData?: SkipTimestamps
+  videoTitle?: string
+  showLibrary?: boolean
+  showEpisodes?: boolean
   onPlayPause: () => void
   onSeek: (time: number) => void
   onVolumeChange: (volume: number) => void
@@ -21,6 +24,8 @@ type PlayerControlsProps = {
   onSubtitleSelect: (subtitle: Subtitle | null) => void
   onFullscreen: () => void
   onSkipDataSave?: (skipData: SkipTimestamps) => void
+  onToggleLibrary?: () => void
+  onToggleEpisodes?: () => void
 }
 
 export function PlayerControls({
@@ -32,13 +37,18 @@ export function PlayerControls({
   subtitles,
   selectedSubtitle,
   skipData,
+  videoTitle,
+  showLibrary,
+  showEpisodes,
   onPlayPause,
   onSeek,
   onVolumeChange,
   onMuteToggle,
   onSubtitleSelect,
   onFullscreen,
-  onSkipDataSave
+  onSkipDataSave,
+  onToggleLibrary,
+  onToggleEpisodes
 }: PlayerControlsProps) {
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false)
   const [isSkipEditOpen, setIsSkipEditOpen] = useState(false)
@@ -57,7 +67,14 @@ export function PlayerControls({
 
   return (
     <>
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-8">
+      <div className="absolute bottom-5 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-8">
+        {/* Video title */}
+        {videoTitle && (
+          <p className="text-lg text-white/90 font-medium truncate mb-2 drop-shadow">
+            {videoTitle}
+          </p>
+        )}
+
         {/* Progress bar */}
         <div
           className="w-full h-1 bg-dark-700 rounded-full cursor-pointer hover:h-2 transition-all mb-4 group"
@@ -77,7 +94,45 @@ export function PlayerControls({
 
         {/* Controls */}
         <div className="flex items-center justify-between">
+          {/* Left controls */}
           <div className="flex items-center gap-2">
+            {/* Toggle Library */}
+            <Button
+              onClick={onToggleLibrary}
+              variant="ghost"
+              size="sm"
+              className={`!p-2 ${showLibrary ? 'text-blue-400' : ''}`}
+              title={showLibrary ? 'Hide Library' : 'Show Library'}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                />
+              </svg>
+            </Button>
+
+            {/* Toggle Episodes */}
+            <Button
+              onClick={onToggleEpisodes}
+              variant="ghost"
+              size="sm"
+              className={`!p-2 ${showEpisodes ? 'text-blue-400' : ''}`}
+              title={showEpisodes ? 'Hide Episodes' : 'Show Episodes'}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                />
+              </svg>
+            </Button>
+
+            {/* Play/Pause */}
             <Button onClick={onPlayPause} variant="ghost" size="sm" className="!p-2">
               {isPlaying ? (
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -90,6 +145,7 @@ export function PlayerControls({
               )}
             </Button>
 
+            {/* Volume */}
             <div className="flex items-center gap-1">
               <Button onClick={onMuteToggle} variant="ghost" size="sm" className="!p-2">
                 {isMuted ? (
@@ -114,6 +170,7 @@ export function PlayerControls({
             </div>
           </div>
 
+          {/* Right controls */}
           <div className="flex items-center gap-2">
             {/* Skip Edit Button */}
             <Button

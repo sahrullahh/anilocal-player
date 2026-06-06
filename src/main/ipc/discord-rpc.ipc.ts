@@ -13,6 +13,10 @@ export function registerDiscordRpcIpc() {
     await discordRpcService.updateActivity(payload)
   })
 
+  ipcMain.handle('discord:setIdleActivity', async () => {
+    await discordRpcService.setIdleActivity()
+  })
+
   ipcMain.handle('discord:clearActivity', async () => {
     await discordRpcService.clearActivity()
   })

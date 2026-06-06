@@ -16,6 +16,7 @@ class DiscordRpcService {
   private isReady = false
   private isConnecting = false
   private lastUpdateAt = 0
+  private sessionStartedAt: Date | null = null
 
   async connect() {
     if (!env.discordClientId) {
@@ -41,6 +42,9 @@ class DiscordRpcService {
       }
 
       await this.client.login({ clientId: env.discordClientId })
+      if (!this.sessionStartedAt) {
+        this.sessionStartedAt = new Date()
+      }
       return true
     } catch (error) {
       console.warn('[Discord RPC] Login failed. Discord may be closed.', error)
@@ -62,11 +66,9 @@ class DiscordRpcService {
     if (now - this.lastUpdateAt < 15000) return
 
     try {
-      const rawCurrent = Number.isFinite(payload.currentTimeSeconds) ? payload.currentTimeSeconds : 0
-      const rawDuration = Number.isFinite(payload.durationSeconds) ? payload.durationSeconds : 0
-      const clampedCurrent = Math.max(0, Math.min(rawCurrent, rawDuration || rawCurrent))
-      const nowMs = Date.now()
-      const startTimestamp = new Date(nowMs - clampedCurrent * 1000)
+      if (!this.sessionStartedAt) {
+        this.sessionStartedAt = new Date()
+      }
 
       await this.client.setActivity({
         details: `Watching ${payload.animeTitle}`,
@@ -75,12 +77,43 @@ class DiscordRpcService {
         largeImageText: 'AniLocal Player',
         smallImageKey: payload.isPlaying ? 'play_icon' : 'pause_icon',
         smallImageText: payload.isPlaying ? 'Playing' : 'Paused',
-        startTimestamp,
+        startTimestamp: this.sessionStartedAt,
         instance: false
       })
       this.lastUpdateAt = now
     } catch (error) {
       console.warn('[Discord RPC] Failed to update activity', error)
+    }
+  }
+
+  async setIdleActivity() {
+    if (!this.isReady) {
+      await this.connect()
+    }
+
+    if (!this.client || !this.isReady) return
+
+    const now = Date.now()
+    if (now - this.lastUpdateAt < 15000) return
+
+    try {
+      if (!this.sessionStartedAt) {
+        this.sessionStartedAt = new Date()
+      }
+
+      await this.client.setActivity({
+        details: 'AniLocal Player',
+        state: 'Idling • Not playing',
+        largeImageKey: 'app_logo',
+        largeImageText: 'AniLocal Player',
+        smallImageKey: 'pause_icon',
+        smallImageText: 'Not playing',
+        startTimestamp: this.sessionStartedAt,
+        instance: false
+      })
+      this.lastUpdateAt = now
+    } catch (error) {
+      console.warn('[Discord RPC] Failed to set idle activity', error)
     }
   }
 
@@ -106,6 +139,7 @@ class DiscordRpcService {
       await this.clearActivity()
       this.isReady = false
       this.lastUpdateAt = 0
+      this.sessionStartedAt = null
       this.client.destroy()
       this.client = null
     } catch (error) {

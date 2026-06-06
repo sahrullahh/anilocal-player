@@ -5,6 +5,7 @@ import { registerFolderIpc } from './ipc/folder.ipc'
 import { registerStorageIpc } from './ipc/storage.ipc'
 import { registerSubtitleIpc } from './ipc/subtitle.ipc'
 import { registerDiscordRpcIpc } from './ipc/discord-rpc.ipc'
+import { registerOpenWithIpc } from './ipc/open-with.ipc'
 import { discordRpcService } from './services/discord-rpc.service'
 
 app.on('ready', () => {
@@ -18,6 +19,7 @@ app.on('ready', () => {
   registerStorageIpc()
   registerSubtitleIpc()
   registerDiscordRpcIpc()
+  registerOpenWithIpc()
 
   void discordRpcService.connect()
 

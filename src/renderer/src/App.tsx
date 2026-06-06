@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLibraryStore } from './store/library.store'
 import { usePlayerStore } from './store/player.store'
 import { useSettingsStore } from './store/settings.store'
@@ -6,11 +6,16 @@ import { LibrarySidebar } from './components/sidebar/LibrarySidebar'
 import { EpisodeList } from './components/sidebar/EpisodeList'
 import { VideoPlayer } from './components/player/VideoPlayer'
 import './assets/main.css'
+import { v4 as uuidv4 } from 'uuid'
+import type { Anime } from './types/anime'
 
 function App(): React.JSX.Element {
   const { loadLibrary } = useLibraryStore()
-  const { loadSavedData } = usePlayerStore()
+  const { loadSavedData, playEpisode, setPlaylist } = usePlayerStore()
   const { theme } = useSettingsStore()
+
+  const [showLibrary, setShowLibrary] = useState(false)
+  const [showEpisodes, setShowEpisodes] = useState(false)
 
   useEffect(() => {
     loadLibrary()
@@ -25,16 +30,48 @@ function App(): React.JSX.Element {
     }
   }, [theme])
 
+  // Listen for "Open with Video Player" context menu events from main process
+  useEffect(() => {
+    const cleanup = window.api.onOpenFile(async (filePath: string) => {
+      try {
+        // Scan the parent folder to get all sibling episodes + subtitles
+        const folderPath = filePath.substring(0, Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\')))
+        const scanResult = await window.api.scanFolder(folderPath)
+
+        const anime: Anime = {
+          id: uuidv4(),
+          name: scanResult.name,
+          path: scanResult.path,
+          episodes: scanResult.episodes
+        }
+
+        setPlaylist(anime.episodes)
+
+        // Find and play the specific file that was right-clicked
+        const target = anime.episodes.find((ep) => ep.filePath === filePath) ?? anime.episodes[0]
+        if (target) playEpisode(target)
+      } catch (err) {
+        console.error('Failed to open file from context menu', err)
+      }
+    })
+    return cleanup
+  }, [playEpisode, setPlaylist])
+
   return (
     <div className="w-screen h-screen bg-dark-950 text-white flex overflow-hidden dark">
       {/* Left Sidebar - Library */}
-      <LibrarySidebar />
+      {showLibrary && <LibrarySidebar onClose={() => setShowLibrary(false)} />}
 
       {/* Center - Video Player */}
-      <VideoPlayer />
+      <VideoPlayer
+        showLibrary={showLibrary}
+        showEpisodes={showEpisodes}
+        onToggleLibrary={() => setShowLibrary((v) => !v)}
+        onToggleEpisodes={() => setShowEpisodes((v) => !v)}
+      />
 
       {/* Right Sidebar - Episode List */}
-      <EpisodeList />
+      {showEpisodes && <EpisodeList onClose={() => setShowEpisodes(false)} />}
     </div>
   )
 }

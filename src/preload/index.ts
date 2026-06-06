@@ -44,6 +44,7 @@ export type DiscordActivityPayload = {
 
 const api = {
   selectFolder: () => ipcRenderer.invoke('folder:select'),
+  selectFile: () => ipcRenderer.invoke('folder:selectFile'),
   scanFolder: (path: string) => ipcRenderer.invoke('folder:scan', path),
   getLibrary: () => ipcRenderer.invoke('storage:getLibrary'),
   saveLibrary: (data: LibraryRecord[]) => ipcRenderer.invoke('storage:saveLibrary', data),
@@ -55,10 +56,17 @@ const api = {
     ipcRenderer.invoke('storage:saveSkipData', data),
   convertSrtToVtt: (path: string) => ipcRenderer.invoke('subtitle:convertSrtToVtt', path),
   toFileUrl: (path: string) => ipcRenderer.invoke('subtitle:toFileUrl', path),
+  onOpenFile: (callback: (filePath: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, filePath: string) => callback(filePath)
+    ipcRenderer.on('player:openFileFromContextMenu', handler)
+    // Return cleanup function
+    return () => ipcRenderer.removeListener('player:openFileFromContextMenu', handler)
+  },
   discord: {
     connect: () => ipcRenderer.invoke('discord:connect'),
     updateActivity: (payload: DiscordActivityPayload) =>
       ipcRenderer.invoke('discord:updateActivity', payload),
+    setIdleActivity: () => ipcRenderer.invoke('discord:setIdleActivity'),
     clearActivity: () => ipcRenderer.invoke('discord:clearActivity'),
     disconnect: () => ipcRenderer.invoke('discord:disconnect')
   }

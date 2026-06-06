@@ -11,6 +11,19 @@ export function registerFolderIpc(): void {
     return result.filePaths[0]
   })
 
+  ipcMain.handle('folder:selectFile', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+        { name: 'Video Files', extensions: ['mp4', 'mkv', 'webm', 'avi'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
   ipcMain.handle('folder:scan', async (_, folderPath: string) => {
     return scanAnimeFolder(folderPath)
   })
