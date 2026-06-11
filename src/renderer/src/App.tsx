@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLibraryStore } from './store/library.store'
 import { usePlayerStore } from './store/player.store'
 import { useSettingsStore } from './store/settings.store'
+import { useLibrarySettingsStore } from './store/library-settings.store'
 import { LibrarySidebar } from './components/sidebar/LibrarySidebar'
 import { EpisodeList } from './components/sidebar/EpisodeList'
 import { VideoPlayer } from './components/player/VideoPlayer'
@@ -13,6 +14,7 @@ function App(): React.JSX.Element {
   const { loadLibrary } = useLibraryStore()
   const { loadSavedData, playEpisode, setPlaylist } = usePlayerStore()
   const { theme } = useSettingsStore()
+  const { setCenterMode } = useLibrarySettingsStore()
 
   const [showLibrary, setShowLibrary] = useState(false)
   const [showEpisodes, setShowEpisodes] = useState(false)
@@ -49,7 +51,10 @@ function App(): React.JSX.Element {
 
         // Find and play the specific file that was right-clicked
         const target = anime.episodes.find((ep) => ep.filePath === filePath) ?? anime.episodes[0]
-        if (target) playEpisode(target)
+        if (target) {
+          playEpisode(target)
+          setCenterMode('player')
+        }
       } catch (err) {
         console.error('Failed to open file from context menu', err)
       }

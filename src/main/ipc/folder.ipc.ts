@@ -1,4 +1,5 @@
 import { dialog, ipcMain } from 'electron'
+import { promises as fs } from 'fs'
 import { scanAnimeFolder } from '../services/scan-folder.service'
 
 export function registerFolderIpc(): void {
@@ -6,7 +7,6 @@ export function registerFolderIpc(): void {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory']
     })
-
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
   })
@@ -19,9 +19,29 @@ export function registerFolderIpc(): void {
         { name: 'All Files', extensions: ['*'] }
       ]
     })
-
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
+  })
+
+  ipcMain.handle('folder:selectJsonFile', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [
+        { name: 'Skip Pack / JSON', extensions: ['json', 'skip.json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle('folder:readJsonFile', async (_, filePath: string) => {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8')
+      return JSON.parse(content)
+    } catch {
+      return null
+    }
   })
 
   ipcMain.handle('folder:scan', async (_, folderPath: string) => {

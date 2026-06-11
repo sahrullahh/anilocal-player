@@ -44,6 +44,8 @@ export type DiscordActivityPayload = {
 export interface API {
   selectFolder: () => Promise<string | null>
   selectFile: () => Promise<string | null>
+  selectJsonFile: () => Promise<string | null>
+  readJsonFile: (filePath: string) => Promise<unknown>
   scanFolder: (path: string) => Promise<{
     name: string
     path: string

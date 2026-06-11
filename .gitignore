@@ -1,6 +1,7 @@
 node_modules
 dist
 build
+example
 out
 .DS_Store
 .eslintcache

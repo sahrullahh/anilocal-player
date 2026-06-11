@@ -7,11 +7,13 @@ interface SettingsState {
   defaultSubtitleExt: string
   theme: 'dark' | 'light'
   autoplay: boolean
+  repeat: boolean
 
   setVolume: (volume: number) => void
   setIsMute: (mute: boolean) => void
   setTheme: (theme: 'dark' | 'light') => void
   setAutoplay: (autoplay: boolean) => void
+  setRepeat: (repeat: boolean) => void
 }5
 
 export const useSettingsStore = create<SettingsState>()(
@@ -22,11 +24,13 @@ export const useSettingsStore = create<SettingsState>()(
       defaultSubtitleExt: '.vtt',
       theme: 'dark',
       autoplay: true,
+      repeat: false,
 
       setVolume: (volume) => set({ volume, isMute: volume === 0 }),
       setIsMute: (isMute) => set({ isMute }),
       setTheme: (theme) => set({ theme }),
-      setAutoplay: (autoplay) => set({ autoplay })
+      setAutoplay: (autoplay) => set({ autoplay }),
+      setRepeat: (repeat) => set({ repeat })
     }),
     {
       name: 'anilocal-settings'

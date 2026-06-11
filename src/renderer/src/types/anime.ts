@@ -45,3 +45,24 @@ export type SkipTimestamps = {
   outroStart?: number
   outroEnd?: number
 }
+
+// Skip Pack types
+export type SkipPackEntry = {
+  episodeNumber: number
+  episodeTitle?: string
+  introStart?: number
+  introEnd?: number
+  outroStart?: number
+  outroEnd?: number
+}
+
+export type SkipPack = {
+  id: string
+  name: string
+  animeTitle?: string
+  importedAt: string
+  entries: SkipPackEntry[]
+}
+
+// Episode mapping: filePath -> episodeNumber (for skip pack matching)
+export type EpisodeMappings = Record<string, number>

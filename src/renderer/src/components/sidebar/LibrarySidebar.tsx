@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLibraryStore } from '../../store/library.store'
 import { usePlayerStore } from '../../store/player.store'
+import { useLibrarySettingsStore } from '../../store/library-settings.store'
 import { Button } from '../common/Button'
 import { EmptyState } from '../common/EmptyState'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -25,6 +26,7 @@ export function LibrarySidebar({
     removeLibrary
   } = useLibraryStore()
   const { setPlaylist, resetPlayer } = usePlayerStore()
+  const { selectAnime, resetSettings } = useLibrarySettingsStore()
 
   useEffect(() => {
     loadLibrary()
@@ -32,18 +34,21 @@ export function LibrarySidebar({
 
   const handleSelectAnime = (anime: typeof currentAnime) => {
     if (!anime) return
+    // Reset player so video stops
     resetPlayer()
     setCurrentAnime(anime)
     setPlaylist(anime.episodes)
+    // Switch center area to library-settings mode
+    selectAnime(anime)
     onSelectAnime?.()
   }
 
   const handleRemoveAnime = (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
     const remaining = libraries.filter((lib) => lib.id !== id)
-    // If the removed folder was the active one, reset the player
     if (currentAnime?.id === id) {
       resetPlayer()
+      resetSettings()
     }
     removeLibrary(id)
     onRemoveAnime?.(remaining.length)

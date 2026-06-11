@@ -5,17 +5,17 @@ import { useSettingsStore } from '../store/settings.store'
 export function useAutoplay(videoRef: React.RefObject<HTMLVideoElement | null>) {
   const [countdown, setCountdown] = useState<number | null>(null)
   const { currentEpisode, playNext, setAutoplayDelay } = usePlayerStore()
-  const { autoplay } = useSettingsStore()
+  const { autoplay, repeat } = useSettingsStore()
 
-  // Keep a ref to always read the latest autoplay value inside the event listener
-  // without needing to re-attach the listener every time autoplay changes
+  // Keep a ref to always read the latest autoplay/repeat value inside the event listener
   const autoplayRef = useRef(autoplay)
-  useEffect(() => {
-    autoplayRef.current = autoplay
-  }, [autoplay])
+  const repeatRef = useRef(repeat)
+  useEffect(() => { autoplayRef.current = autoplay }, [autoplay])
+  useEffect(() => { repeatRef.current = repeat }, [repeat])
 
   const startCountdown = useCallback(() => {
-    if (!autoplayRef.current) return
+    // Don't autoplay next episode when repeat is on — video.loop handles looping natively
+    if (!autoplayRef.current || repeatRef.current) return
     setCountdown(5)
     setAutoplayDelay(true)
   }, [setAutoplayDelay])

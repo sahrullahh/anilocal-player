@@ -5,9 +5,11 @@ import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { useIdleMouseHide } from '../../hooks/useIdleMouseHide'
 import { usePlayerStore } from '../../store/player.store'
 import { useLibraryStore } from '../../store/library.store'
+import { useLibrarySettingsStore } from '../../store/library-settings.store'
 import { PlayerControls } from './PlayerControls'
 import { SkipOverlay } from './SkipOverlay'
 import { AutoplayCountdown } from './AutoplayCountdown'
+import { LibrarySettings } from '../library/LibrarySettings'
 import type { SkipTimestamps } from '../../types/anime'
 import type { DiscordActivityPayload } from '../../types/electron-api'
 import { useCallback, useEffect, useRef } from 'react'
@@ -28,6 +30,7 @@ export function VideoPlayer({
 }) {
   const { currentEpisode, skipData, updateSkipData, playEpisode, setPlaylist } = usePlayerStore()
   const { addFolder } = useLibraryStore()
+  const { centerMode, setCenterMode } = useLibrarySettingsStore()
   const {
     videoRef,
     videoSrc,
@@ -165,11 +168,19 @@ export function VideoPlayer({
 
       setPlaylist(anime.episodes)
       const target = anime.episodes.find((ep) => ep.filePath === filePath) ?? anime.episodes[0]
-      if (target) playEpisode(target)
+      if (target) {
+        playEpisode(target)
+        setCenterMode('player')
+      }
     } catch (err) {
       console.error('Failed to open file', err)
     }
-  }, [playEpisode, setPlaylist])
+  }, [playEpisode, setPlaylist, setCenterMode])
+
+  // Library settings mode — show settings panel instead of player/landing
+  if (centerMode === 'library-settings') {
+    return <LibrarySettings />
+  }
 
   if (!currentEpisode) {
     return (
@@ -327,6 +338,7 @@ export function VideoPlayer({
           showEpisodes={showEpisodes}
           onPlayPause={togglePlay}
           onSeek={setSeek}
+          onSeekRelative={seek}
           onVolumeChange={setVolume}
           onMuteToggle={toggleMute}
           onSubtitleSelect={setSelectedSubtitle}

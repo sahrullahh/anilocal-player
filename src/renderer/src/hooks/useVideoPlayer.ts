@@ -11,7 +11,7 @@ export function useVideoPlayer() {
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const { currentEpisode, updateProgress, setIsPlaying } = usePlayerStore()
-  const { volume, isMute, setVolume, setIsMute } = useSettingsStore()
+  const { volume, isMute, setVolume, setIsMute, repeat } = useSettingsStore()
 
   useEffect(() => {
     if (!currentEpisode) {
@@ -83,6 +83,13 @@ export function useVideoPlayer() {
     video.muted = isMute
   }, [volume, isMute, videoSrc])
 
+  // Sync repeat/loop state to the video element
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    video.loop = repeat
+  }, [repeat, videoSrc])
+
   const onTimeUpdate = useCallback(() => {
     const video = videoRef.current
     if (!video) return
@@ -148,6 +155,7 @@ export function useVideoPlayer() {
     isFullscreen,
     volume,
     isMute,
+    repeat,
     setVolume,
     setSeek,
     seek,
