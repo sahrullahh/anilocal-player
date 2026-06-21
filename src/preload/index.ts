@@ -15,21 +15,39 @@ export type SkipEntry = {
   outroEnd?: number
 }
 
+export type SubtitleRecord = {
+  label: string
+  path: string
+  extension: string
+  language: string
+  format: string
+  source: 'internal' | 'external'
+}
+
+export type FansubInfoRecord = {
+  fansubGroup: string | null
+  animeTitle: string | null
+  episode: number | null
+}
+
+export type EpisodeRecord = {
+  id: string
+  title: string
+  fileName: string
+  filePath: string
+  folderPath: string
+  extension: string
+  size: number
+  modifiedAt: string
+  subtitles: SubtitleRecord[]
+  fansubInfo: FansubInfoRecord
+}
+
 export type LibraryRecord = {
   id: string
   name: string
   path: string
-  episodes: Array<{
-    id: string
-    title: string
-    fileName: string
-    filePath: string
-    folderPath: string
-    extension: string
-    size: number
-    modifiedAt: string
-    subtitles: { label: string; path: string; extension: string }[]
-  }>
+  episodes: EpisodeRecord[]
 }
 
 export type DiscordActivityPayload = {
@@ -58,6 +76,7 @@ const api = {
     ipcRenderer.invoke('storage:saveSkipData', data),
   convertSrtToVtt: (path: string) => ipcRenderer.invoke('subtitle:convertSrtToVtt', path),
   toFileUrl: (path: string) => ipcRenderer.invoke('subtitle:toFileUrl', path),
+  readSubtitleFile: (path: string) => ipcRenderer.invoke('subtitle:readFile', path),
   onOpenFile: (callback: (filePath: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, filePath: string) => callback(filePath)
     ipcRenderer.on('player:openFileFromContextMenu', handler)

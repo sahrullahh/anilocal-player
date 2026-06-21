@@ -19,7 +19,13 @@ export function EpisodeList({ onClose }: { onClose?: () => void }) {
   const getSkipBadges = (episode: Episode) => {
     const d = skipData?.[episode.filePath]
     const badges: string[] = []
-    if (episode.subtitles?.length > 0) badges.push('SUB')
+    // Show fansub group badge if detected
+    if (episode.fansubInfo?.fansubGroup) badges.push(episode.fansubInfo.fansubGroup)
+    if (episode.subtitles?.length > 0) {
+      // Show highest priority format
+      const fmtBadge = episode.subtitles[0].extension.replace('.', '').toUpperCase()
+      badges.push(fmtBadge)
+    }
     if (d?.introEnd != null) badges.push('INTRO')
     if (d?.outroEnd != null) badges.push('OUTRO')
     return badges
@@ -121,18 +127,28 @@ export function EpisodeList({ onClose }: { onClose?: () => void }) {
                     {/* Badges */}
                     {badges.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {badges.map((badge) => (
-                          <span
-                            key={badge}
-                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                              isActive
-                                ? 'bg-blue-500/50 text-blue-100'
-                                : 'bg-dark-700 text-gray-400'
-                            }`}
-                          >
-                            {badge}
-                          </span>
-                        ))}
+                        {badges.map((badge, bi) => {
+                          // First badge is fansub group (if present), color it distinctly
+                          const isFansubBadge =
+                            episode.fansubInfo?.fansubGroup &&
+                            bi === 0 &&
+                            badge === episode.fansubInfo.fansubGroup
+                          return (
+                            <span
+                              key={badge + bi}
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded truncate max-w-24 ${
+                                isActive
+                                  ? 'bg-blue-500/50 text-blue-100'
+                                  : isFansubBadge
+                                    ? 'bg-purple-900/60 text-purple-300'
+                                    : 'bg-dark-700 text-gray-400'
+                              }`}
+                              title={isFansubBadge ? `Fansub: ${badge}` : badge}
+                            >
+                              {isFansubBadge ? `[${badge}]` : badge}
+                            </span>
+                          )
+                        })}
                       </div>
                     )}
 

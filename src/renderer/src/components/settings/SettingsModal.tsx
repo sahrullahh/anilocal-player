@@ -1,17 +1,31 @@
 import { Modal } from '../common/Modal'
 import { useSettingsStore } from '../../store/settings.store'
 
+const LANGUAGES = ['Indonesia', 'English', 'Japanese', 'Chinese', 'Arabic', 'Spanish', 'French', 'Portuguese', 'Unknown']
+const FORMATS = ['.ass', '.ssa', '.srt', '.vtt']
+
 type SettingsModalProps = {
   isOpen: boolean
   onClose: () => void
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { autoplay, setAutoplay, volume, setVolume } = useSettingsStore()
+  const {
+    autoplay,
+    setAutoplay,
+    volume,
+    setVolume,
+    preferredSubtitleLanguage,
+    setPreferredSubtitleLanguage,
+    preferredSubtitleFormat,
+    setPreferredSubtitleFormat
+  } = useSettingsStore()
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings">
       <div className="space-y-6">
+
+        {/* ── Autoplay ── */}
         <div className="flex items-center justify-between gap-4 rounded-xl bg-dark-900 p-4 border border-dark-700">
           <div>
             <h3 className="text-white font-medium">Autoplay next episode</h3>
@@ -35,6 +49,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           </button>
         </div>
 
+        {/* ── Default volume ── */}
         <div className="rounded-xl bg-dark-900 p-4 border border-dark-700">
           <div className="flex items-center justify-between gap-4 mb-3">
             <div>
@@ -55,6 +70,66 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             className="w-full accent-blue-600"
           />
         </div>
+
+        {/* ── Subtitle Preferences ── */}
+        <div className="rounded-xl bg-dark-900 p-4 border border-dark-700 space-y-4">
+          <div>
+            <h3 className="text-white font-medium">Subtitle Preferences</h3>
+            <p className="text-sm text-gray-400 mt-1">
+              Pilihan ini digunakan saat player memilih subtitle otomatis untuk episode baru.
+            </p>
+          </div>
+
+          {/* Preferred Language */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Preferred Language
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => setPreferredSubtitleLanguage(lang)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    preferredSubtitleLanguage === lang
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-dark-800 text-gray-300 hover:bg-dark-700 border border-dark-700'
+                  }`}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Preferred Format */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Preferred Format
+            </label>
+            <div className="flex gap-2">
+              {FORMATS.map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => setPreferredSubtitleFormat(fmt)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium uppercase transition-colors ${
+                    preferredSubtitleFormat === fmt
+                      ? 'bg-purple-700 text-purple-100'
+                      : 'bg-dark-800 text-gray-300 hover:bg-dark-700 border border-dark-700'
+                  }`}
+                >
+                  {fmt.replace('.', '')}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              ASS &gt; SSA &gt; SRT &gt; VTT (urutan prioritas default untuk fansub)
+            </p>
+          </div>
+        </div>
+
       </div>
     </Modal>
   )

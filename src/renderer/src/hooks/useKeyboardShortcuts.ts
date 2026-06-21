@@ -7,6 +7,10 @@ type KeyboardActions = {
   toggleMute: () => void
   nextEpisode: () => void
   skip: () => void
+  /** T — cycle through subtitle tracks */
+  cycleSubtitle: () => void
+  /** Shift+T — turn off subtitles */
+  disableSubtitle: () => void
 }
 
 export function useKeyboardShortcuts(actions: KeyboardActions) {
@@ -37,6 +41,14 @@ export function useKeyboardShortcuts(actions: KeyboardActions) {
           break
         case 's':
           actions.skip()
+          break
+        case 't':
+          event.preventDefault()
+          if (event.shiftKey) {
+            actions.disableSubtitle()
+          } else {
+            actions.cycleSubtitle()
+          }
           break
       }
     }

@@ -9,6 +9,7 @@ import { useLibrarySettingsStore } from '../../store/library-settings.store'
 import { PlayerControls } from './PlayerControls'
 import { SkipOverlay } from './SkipOverlay'
 import { AutoplayCountdown } from './AutoplayCountdown'
+import { AssRenderer } from './AssRenderer'
 import { LibrarySettings } from '../library/LibrarySettings'
 import type { SkipTimestamps } from '../../types/anime'
 import type { DiscordActivityPayload } from '../../types/electron-api'
@@ -53,7 +54,7 @@ export function VideoPlayer({
     onError
   } = useVideoPlayer()
 
-  const { selectedSubtitle, subtitleSrc, setSelectedSubtitle } = useSubtitle(
+  const { selectedSubtitle, subtitleSrc, assContent, isAssSubtitle, setSelectedSubtitle, cycleSubtitle, disableSubtitle } = useSubtitle(
     currentEpisode?.subtitles || []
   )
 
@@ -74,7 +75,9 @@ export function VideoPlayer({
       } else if (current?.outroEnd && currentTime < current.outroEnd) {
         setSeek(current.outroEnd)
       }
-    }
+    },
+    cycleSubtitle,
+    disableSubtitle
   })
 
   useEffect(() => {
@@ -300,16 +303,26 @@ export function VideoPlayer({
         onError={onError}
         className="w-full h-full"
       >
-        {subtitleSrc && (
+        {/* Only use <track> for non-ASS formats (VTT/SRT-converted-to-VTT) */}
+        {subtitleSrc && !isAssSubtitle && (
           <track
             kind="subtitles"
             src={subtitleSrc}
-            srcLang="en"
+            srcLang="und"
             label={selectedSubtitle?.label || 'Subtitle'}
             default
           />
         )}
       </video>
+
+      {/* ASS/SSA canvas renderer — renders on top of video */}
+      {isAssSubtitle && assContent && (
+        <AssRenderer
+          assContent={assContent}
+          videoRef={videoRef}
+          visible={!!selectedSubtitle}
+        />
+      )}
 
       {/* Overlay: always visible when paused, hover-based when playing outside fullscreen, idle-timer-based when playing in fullscreen */}
       <div
@@ -342,6 +355,8 @@ export function VideoPlayer({
           onVolumeChange={setVolume}
           onMuteToggle={toggleMute}
           onSubtitleSelect={setSelectedSubtitle}
+          onCycleSubtitle={cycleSubtitle}
+          onDisableSubtitle={disableSubtitle}
           onFullscreen={toggleFullscreen}
           onSkipDataSave={handleSkipDataSave}
           onToggleLibrary={onToggleLibrary}

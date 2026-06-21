@@ -25,6 +25,8 @@ type PlayerControlsProps = {
   onVolumeChange: (volume: number) => void
   onMuteToggle: () => void
   onSubtitleSelect: (subtitle: Subtitle | null) => void
+  onCycleSubtitle: () => void
+  onDisableSubtitle: () => void
   onFullscreen: () => void
   onSkipDataSave?: (skipData: SkipTimestamps) => void
   onToggleLibrary?: () => void
@@ -49,6 +51,8 @@ export function PlayerControls({
   onVolumeChange,
   onMuteToggle,
   onSubtitleSelect,
+  onCycleSubtitle,
+  onDisableSubtitle,
   onFullscreen,
   onSkipDataSave,
   onToggleLibrary,
@@ -60,6 +64,9 @@ export function PlayerControls({
 
   const { repeat, setRepeat, autoplay, setAutoplay } = useSettingsStore()
   const { playNext, playPrevious, playlist, currentEpisode } = usePlayerStore()
+
+  // onDisableSubtitle is wired via keyboard shortcut (Shift+T) from VideoPlayer
+  void onDisableSubtitle
 
   const currentIndex = playlist.findIndex((ep) => ep.id === currentEpisode?.id)
   const hasPrev = currentIndex > 0
@@ -85,12 +92,20 @@ export function PlayerControls({
 
   return (
     <>
-      {/* Video title - top left */}
+      {/* Video title + fansub indicator - top left */}
       {videoTitle && (
         <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent px-4 pt-4 pb-8 pointer-events-none">
           <p className="text-sm text-white/90 font-medium truncate drop-shadow max-w-lg">
             {videoTitle}
           </p>
+          {/* Fansub active indicator */}
+          {selectedSubtitle && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-white/60 bg-black/40 rounded px-2 py-0.5">
+                Subtitle: {selectedSubtitle.language} ({selectedSubtitle.extension.replace('.', '').toUpperCase()})
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -273,26 +288,51 @@ export function PlayerControls({
             </Button>
 
             {/* Subtitles */}
-            {subtitles.length > 0 && (
-              <div className="relative">
-                <Button
-                  onClick={() => setShowSubtitleMenu(!showSubtitleMenu)}
-                  variant="ghost" size="sm" className="!p-2"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M7 16V4m0 0L3 8m4-4l4 4" />
-                  </svg>
-                </Button>
-                {showSubtitleMenu && (
-                  <SubtitleMenu
-                    subtitles={subtitles}
-                    selectedSubtitle={selectedSubtitle}
-                    onSelect={(sub) => { onSubtitleSelect(sub); setShowSubtitleMenu(false) }}
-                  />
-                )}
-              </div>
-            )}
+            <div className="relative flex items-center gap-0.5">
+              {subtitles.length > 0 && (
+                <>
+                  {/* Subtitle icon button — opens/closes menu */}
+                  <Button
+                    onClick={() => setShowSubtitleMenu(!showSubtitleMenu)}
+                    variant="ghost"
+                    size="sm"
+                    className={`!p-2 ${selectedSubtitle ? 'text-blue-400' : ''}`}
+                    title="Subtitle tracks (T to cycle, Shift+T to off)"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                      />
+                    </svg>
+                  </Button>
+
+                  {/* Active format badge */}
+                  {selectedSubtitle && (
+                    <span
+                      className="text-[9px] font-bold px-1 py-0.5 rounded bg-purple-700 text-purple-100 uppercase cursor-pointer hover:bg-purple-600 transition-colors"
+                      onClick={onCycleSubtitle}
+                      title="Click to cycle subtitle (T)"
+                    >
+                      {selectedSubtitle.extension.replace('.', '')}
+                    </span>
+                  )}
+
+                  {showSubtitleMenu && (
+                    <SubtitleMenu
+                      subtitles={subtitles}
+                      selectedSubtitle={selectedSubtitle}
+                      onSelect={(sub) => {
+                        onSubtitleSelect(sub)
+                        setShowSubtitleMenu(false)
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </div>
 
             {/* Fullscreen */}
             <Button onClick={onFullscreen} variant="ghost" size="sm" className="!p-2">

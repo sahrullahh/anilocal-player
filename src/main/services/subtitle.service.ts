@@ -2,6 +2,10 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 
+/**
+ * Convert a .srt file to .vtt (WebVTT) for use in <track> elements.
+ * The converted file is written next to the source as *.generated.vtt.
+ */
 export async function convertSrtToVtt(filePath: string): Promise<string> {
   const content = await fs.readFile(filePath, 'utf-8')
   const normalized = content.replace(/\r/g, '')
@@ -11,7 +15,18 @@ export async function convertSrtToVtt(filePath: string): Promise<string> {
   return outputPath
 }
 
+/**
+ * Read a subtitle file and return its raw text content.
+ * Used by the renderer's ASS renderer to get the raw .ass/.ssa content.
+ */
+export async function readSubtitleFile(filePath: string): Promise<string> {
+  return fs.readFile(filePath, 'utf-8')
+}
+
+/**
+ * Convert a local filesystem path to a file:// URL.
+ * Uses Node's pathToFileURL for proper cross-platform handling.
+ */
 export function toFileUrl(filePath: string): string {
-  // Use Node's pathToFileURL for proper cross-platform file URL conversion
   return pathToFileURL(filePath).href
 }
