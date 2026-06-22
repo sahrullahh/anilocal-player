@@ -21,7 +21,14 @@ export type SubtitleRecord = {
   extension: string
   language: string
   format: string
-  source: 'internal' | 'external'
+  source: 'internal' | 'external' | 'embedded'
+  trackIndex?: number
+}
+
+export type EmbeddedTrackDescriptor = {
+  index: number
+  language: string
+  codecName: string
 }
 
 export type FansubInfoRecord = {
@@ -77,6 +84,12 @@ const api = {
   convertSrtToVtt: (path: string) => ipcRenderer.invoke('subtitle:convertSrtToVtt', path),
   toFileUrl: (path: string) => ipcRenderer.invoke('subtitle:toFileUrl', path),
   readSubtitleFile: (path: string) => ipcRenderer.invoke('subtitle:readFile', path),
+  readFontFile: (path: string) => ipcRenderer.invoke('subtitle:readFontFile', path) as Promise<Buffer | { error: string }>,
+  probeEmbeddedTracks: (videoPath: string) =>
+    ipcRenderer.invoke('subtitle:probeEmbeddedTracks', videoPath),
+  extractEmbeddedTrack: (videoPath: string, trackIndex: number) =>
+    ipcRenderer.invoke('subtitle:extractEmbeddedTrack', videoPath, trackIndex),
+  extractFonts: (videoPath: string) => ipcRenderer.invoke('subtitle:extractFonts', videoPath),
   onOpenFile: (callback: (filePath: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, filePath: string) => callback(filePath)
     ipcRenderer.on('player:openFileFromContextMenu', handler)
@@ -97,6 +110,9 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
+    // Inject resourcesPath so the renderer can locate packaged WASM/libass assets
+    // (e.g. SubtitleOctopusRenderer needs {resourcesPath}/libass/ in production)
+    contextBridge.exposeInMainWorld('__resourcesPath', process.resourcesPath)
   } catch (error) {
     console.error(error)
   }
@@ -105,4 +121,6 @@ if (process.contextIsolated) {
   window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.api = api
+  // @ts-ignore (define in dts)
+  window.__resourcesPath = process.resourcesPath
 }

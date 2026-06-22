@@ -7,6 +7,7 @@ import { registerSubtitleIpc } from './ipc/subtitle.ipc'
 import { registerDiscordRpcIpc } from './ipc/discord-rpc.ipc'
 import { registerOpenWithIpc } from './ipc/open-with.ipc'
 import { discordRpcService } from './services/discord-rpc.service'
+import { embeddedSubtitleService } from './services/embedded-subtitle.service'
 import path from 'path'
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mkv', '.webm', '.avi'])
@@ -92,6 +93,7 @@ app.on('open-file', (event, filePath) => {
 
 app.on('before-quit', async () => {
   await discordRpcService.disconnect()
+  await embeddedSubtitleService.cleanup()
 })
 
 app.on('window-all-closed', () => {

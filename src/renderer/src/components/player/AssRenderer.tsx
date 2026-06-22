@@ -1,13 +1,14 @@
 /**
- * AssRenderer — Canvas-based ASS/SSA subtitle renderer using `ass-compiler`.
+ * AssRenderer — Public wrapper that routes to SubtitleOctopusRenderer (WASM libass)
+ * or LegacyAssRenderer (canvas / ass-compiler) based on WebAssembly availability.
  *
- * Renders Advanced SubStation Alpha subtitles on a transparent canvas overlay,
- * supporting: styling, positioning, multiple lines, karaoke timing.
- *
- * The canvas is sized to match the video element and is updated every animation frame.
+ * Requirements: 4.1, 6.6
  */
-import { useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { parse as parseAss } from 'ass-compiler'
+import { SubtitleOctopusRenderer } from './SubtitleOctopusRenderer'
+
+// ─── Public prop shape ────────────────────────────────────────────────────────
 
 type AssRendererProps = {
   /** Raw ASS/SSA script content */
@@ -16,9 +17,32 @@ type AssRendererProps = {
   videoRef: React.RefObject<HTMLVideoElement | null>
   /** Whether the renderer should be visible */
   visible: boolean
+  /** Optional file:// URLs for MKV-embedded font attachments (passed to SubtitleOctopus) */
+  fonts?: string[]
 }
 
-// ─── Colour helpers ──────────────────────────────────────────────────────────
+// ─── Router / public export ───────────────────────────────────────────────────
+
+/**
+ * AssRenderer renders subtitles using SubtitleOctopus (WASM libass) by default.
+ * When WASM is unavailable or SubtitleOctopus signals a fallback, it switches to
+ * LegacyAssRenderer (the original canvas-based ass-compiler renderer).
+ */
+export function AssRenderer(props: AssRendererProps) {
+  const [wasmUnavailable, setWasmUnavailable] = useState(false)
+
+  if (!wasmUnavailable) {
+    return (
+      <SubtitleOctopusRenderer
+        {...props}
+        onFallback={() => setWasmUnavailable(true)}
+      />
+    )
+  }
+  return <LegacyAssRenderer {...props} />
+}
+
+// ─── Colour helpers ───────────────────────────────────────────────────────────
 
 /** Convert ASS colour `&HAABBGGRR` → CSS `rgba(r,g,b,a)` */
 function assColorToCss(assColor: string, defaultAlpha = 1): string {
@@ -31,8 +55,6 @@ function assColorToCss(assColor: string, defaultAlpha = 1): string {
   const alpha = defaultAlpha * (1 - aa / 255)
   return `rgba(${rr},${gg},${bb},${alpha.toFixed(3)})`
 }
-
-// ─── Tag parser ───────────────────────────────────────────────────────────────
 
 // ─── Parsed event ─────────────────────────────────────────────────────────────
 
@@ -73,9 +95,18 @@ type CompiledStyle = {
   MarginV: number
 }
 
-// ─── Renderer ─────────────────────────────────────────────────────────────────
+// ─── Legacy canvas renderer (internal) ───────────────────────────────────────
 
-export function AssRenderer({ assContent, videoRef, visible }: AssRendererProps) {
+/**
+ * LegacyAssRenderer — Canvas-based ASS/SSA subtitle renderer using `ass-compiler`.
+ *
+ * Used as fallback when WebAssembly / SubtitleOctopus is unavailable.
+ * `fonts` prop is accepted for interface compatibility but is not used by the
+ * canvas renderer.
+ *
+ * Requirements: 6.6
+ */
+function LegacyAssRenderer({ assContent, videoRef, visible }: AssRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
   const parsedRef = useRef<{
@@ -127,7 +158,7 @@ export function AssRenderer({ assContent, videoRef, visible }: AssRendererProps)
 
       parsedRef.current = { events, styles, scriptInfo }
     } catch (err) {
-      console.error('[AssRenderer] Failed to parse ASS content', err)
+      console.error('[LegacyAssRenderer] Failed to parse ASS content', err)
       parsedRef.current = null
     }
   }, [assContent])

@@ -14,13 +14,20 @@ export type SkipEntry = {
   outroEnd?: number
 }
 
+export type EmbeddedTrackDescriptor = {
+  index: number
+  language: string
+  codecName: string
+}
+
 export type SubtitleRecord = {
   label: string
   path: string
   extension: string
   language: string
   format: string
-  source: 'internal' | 'external'
+  source: 'internal' | 'external' | 'embedded'
+  trackIndex?: number
 }
 
 export type FansubInfoRecord = {
@@ -78,6 +85,15 @@ export interface API {
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
   readSubtitleFile: (path: string) => Promise<string>
+  readFontFile: (path: string) => Promise<Buffer | { error: string }>
+  probeEmbeddedTracks: (
+    videoPath: string
+  ) => Promise<EmbeddedTrackDescriptor[] | { error: string }>
+  extractEmbeddedTrack: (
+    videoPath: string,
+    trackIndex: number
+  ) => Promise<{ path: string } | { error: string }>
+  extractFonts: (videoPath: string) => Promise<{ paths: string[] } | { error: string }>
   onOpenFile: (callback: (filePath: string) => void) => () => void
   discord: {
     connect: () => Promise<boolean>
@@ -92,5 +108,11 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: API
+    /**
+     * Absolute path to the Electron `resources/` directory, injected by the
+     * preload script. Used in production builds to resolve packaged WASM/libass
+     * asset URLs:  `file://${window.__resourcesPath}/libass/<filename>`
+     */
+    __resourcesPath: string
   }
 }

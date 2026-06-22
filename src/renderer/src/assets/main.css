@@ -67,3 +67,19 @@ video::-webkit-media-controls {
 video::-webkit-media-controls-enclosure {
   display: none !important;
 }
+
+/* SubtitlesOctopus canvas overlay — must sit exactly over the video */
+.libassjs-canvas-parent {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 20;
+}
+
+.libassjs-canvas-parent .libassjs-canvas {
+  position: absolute !important;
+  pointer-events: none !important;
+}

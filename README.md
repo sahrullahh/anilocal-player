@@ -102,7 +102,7 @@
 | Discord      | **discord-rpc**                             |
 | Storage      | **lowdb** (JSON-based local DB)             |
 | Auto-Update  | **electron-updater**                        |
-| Packaging    | **electron-builder** (NSIS/DMG/AppImage)   |
+| Packaging    | **electron-builder** (NSIS/DMG/AppImage)    |
 
 ---
 
@@ -228,20 +228,20 @@ npm run build:unpack
 ```
 anilocal-player/
 ├── src/
-│   ├── main/                    # Electron main process
-│   │   ├── ipc/                 # IPC handlers (folder, subtitle, discord, etc.)
-│   │   ├── services/            # Business logic (scan, subtitle, discord, storage)
-│   │   └── config/              # Environment config
-│   ├── preload/                 # Preload bridge (contextBridge API)
-│   └── renderer/                # React app
+│   ├── main/                       # Electron main process
+│   │   ├── ipc/                    # IPC handlers (folder, subtitle, discord, etc.)
+│   │   ├── services/               # Business logic (scan, subtitle, discord, storage)
+│   │   └── config/                 # Environment config
+│   ├── preload/                    # Preload bridge (contextBridge API)
+│   └── renderer/                   # React app
 │       └── src/
-│           ├── components/      # UI components (player, sidebar, settings, library)
-│           ├── hooks/           # Custom React hooks (useVideoPlayer, useSubtitle, etc.)
-│           ├── store/           # Zustand stores (player, library, settings, etc.)
-│           ├── types/           # TypeScript type definitions
-│           └── utils/           # Helper functions
-├── electron-builder.yml         # Build config (file associations, platform targets)
-├── electron.vite.config.ts      # Vite + Electron config
+│           ├── components/         # UI components (player, sidebar, settings, library)
+│           ├── hooks/              # Custom React hooks (useVideoPlayer, useSubtitle, etc.)
+│           ├── store/              # Zustand stores (player, library, settings, etc.)
+│           ├── types/              # TypeScript type definitions
+│           └── utils/              # Helper functions
+├── electron-builder.yml            # Build config (file associations, platform targets)
+├── electron.vite.config.ts         # Vite + Electron config
 └── package.json
 ```
 
@@ -312,5 +312,4 @@ Distributed under the MIT License. See `LICENSE` untuk detail lengkap.
 **Mohammad Sahrullah**
 
 Dibuat dengan ❤️ dan bantuan AI.
-
-> _Powered by AI. Built for anime fans who prefer local playback._
+> Powered by AI. Built for anime fans who prefer local playback.

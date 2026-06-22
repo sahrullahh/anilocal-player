@@ -8,13 +8,20 @@ export type DiscordActivityPayload = {
   isPlaying: boolean
 }
 
+export type EmbeddedTrackDescriptor = {
+  index: number
+  language: string
+  codecName: string
+}
+
 export type SubtitleRecord = {
   label: string
   path: string
   extension: string
   language: string
   format: string
-  source: 'internal' | 'external'
+  source: 'internal' | 'external' | 'embedded'
+  trackIndex?: number
 }
 
 export type FansubInfoRecord = {
@@ -55,6 +62,10 @@ export type ElectronAPI = {
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
   readSubtitleFile: (path: string) => Promise<string>
+  readFontFile: (path: string) => Promise<Buffer | { error: string }>
+  probeEmbeddedTracks: (videoPath: string) => Promise<EmbeddedTrackDescriptor[] | { error: string }>
+  extractEmbeddedTrack: (videoPath: string, trackIndex: number) => Promise<{ path: string } | { error: string }>
+  extractFonts: (videoPath: string) => Promise<{ paths: string[] } | { error: string }>
   onOpenFile: (callback: (filePath: string) => void) => () => void
   discord: {
     connect: () => Promise<boolean>

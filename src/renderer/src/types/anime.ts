@@ -10,12 +10,12 @@ export const SUBTITLE_FORMAT_PRIORITY: Record<string, number> = {
 
 export type SubtitleFormat = '.ass' | '.ssa' | '.srt' | '.vtt'
 
-export type SubtitleSource = 'internal' | 'external'
+export type SubtitleSource = 'internal' | 'external' | 'embedded'
 
 export type Subtitle = {
   /** Display label, e.g. "Indonesia (ASS)" or "English (SRT)" */
   label: string
-  /** Absolute file path (external) or track index as string (internal in future) */
+  /** Absolute file path (external) or synthetic "embedded:{trackIndex}" for embedded tracks */
   path: string
   extension: string
   /** Detected language from filename, e.g. "Indonesia", "English", "Unknown" */
@@ -24,6 +24,8 @@ export type Subtitle = {
   format: SubtitleFormat | string
   /** Where the subtitle came from */
   source: SubtitleSource
+  /** Zero-based ffmpeg stream index; present only when source === 'embedded' */
+  trackIndex?: number
 }
 
 // ─── Fansub ──────────────────────────────────────────────────────────────────

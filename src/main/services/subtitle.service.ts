@@ -24,6 +24,15 @@ export async function readSubtitleFile(filePath: string): Promise<string> {
 }
 
 /**
+ * Read a font file and return its content as a Buffer (binary).
+ * Used by the renderer to create a Blob URL for SubtitlesOctopus,
+ * which cannot fetch file:// URLs from a Web Worker context.
+ */
+export async function readFontFile(filePath: string): Promise<Buffer> {
+  return fs.readFile(filePath)
+}
+
+/**
  * Convert a local filesystem path to a file:// URL.
  * Uses Node's pathToFileURL for proper cross-platform handling.
  */

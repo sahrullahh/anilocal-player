@@ -1,5 +1,6 @@
 import { useVideoPlayer } from '../../hooks/useVideoPlayer'
 import { useSubtitle } from '../../hooks/useSubtitle'
+import { useEmbeddedTracks } from '../../hooks/useEmbeddedTracks'
 import { useAutoplay } from '../../hooks/useAutoplay'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { useIdleMouseHide } from '../../hooks/useIdleMouseHide'
@@ -10,10 +11,11 @@ import { PlayerControls } from './PlayerControls'
 import { SkipOverlay } from './SkipOverlay'
 import { AutoplayCountdown } from './AutoplayCountdown'
 import { AssRenderer } from './AssRenderer'
+import { BufferingSpinner } from './BufferingSpinner'
 import { LibrarySettings } from '../library/LibrarySettings'
 import type { SkipTimestamps } from '../../types/anime'
 import type { DiscordActivityPayload } from '../../types/electron-api'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatTime } from '../../utils/time'
 import { v4 as uuidv4 } from 'uuid'
 import type { Anime } from '../../types/anime'
@@ -54,9 +56,31 @@ export function VideoPlayer({
     onError
   } = useVideoPlayer()
 
-  const { selectedSubtitle, subtitleSrc, assContent, isAssSubtitle, setSelectedSubtitle, cycleSubtitle, disableSubtitle } = useSubtitle(
-    currentEpisode?.subtitles || []
+  // Probe embedded subtitle tracks for MKV episodes
+  const embeddedSubtitles = useEmbeddedTracks(currentEpisode)
+
+  // Merge: embedded tracks prepended before the episode's external tracks.
+  // useMemo prevents a new array identity on every render, which would cause
+  // useSubtitle's identity check to reset subtitle selection every frame.
+  const mergedSubtitles = useMemo(
+    () => [...embeddedSubtitles, ...(currentEpisode?.subtitles ?? [])],
+    [embeddedSubtitles, currentEpisode?.subtitles]
   )
+
+  const { selectedSubtitle, subtitleSrc, assContent, isAssSubtitle, fontUrls, setSelectedSubtitle, cycleSubtitle, disableSubtitle } = useSubtitle(
+    mergedSubtitles,
+    currentEpisode?.filePath
+  )
+
+  // ── Buffering state ───────────────────────────────────────────────────────
+  // true when video fires `waiting` (needs data) or when a new src is set,
+  // false when `canplay` / `playing` fires.
+  const [isBuffering, setIsBuffering] = useState(false)
+
+  // Reset buffering indicator whenever a new episode is loaded
+  useEffect(() => {
+    if (currentEpisode) setIsBuffering(true)
+  }, [currentEpisode])
 
   const { countdown, cancelAutoplay } = useAutoplay(videoRef)
   const { controlsVisible } = useIdleMouseHide(isFullscreen)
@@ -301,6 +325,9 @@ export function VideoPlayer({
           )
         }}
         onError={onError}
+        onWaiting={() => setIsBuffering(true)}
+        onCanPlay={() => setIsBuffering(false)}
+        onPlaying={() => setIsBuffering(false)}
         className="w-full h-full"
       >
         {/* Only use <track> for non-ASS formats (VTT/SRT-converted-to-VTT) */}
@@ -321,8 +348,12 @@ export function VideoPlayer({
           assContent={assContent}
           videoRef={videoRef}
           visible={!!selectedSubtitle}
+          fonts={fontUrls}
         />
       )}
+
+      {/* Buffering / loading indicator */}
+      <BufferingSpinner visible={isBuffering} />
 
       {/* Overlay: always visible when paused, hover-based when playing outside fullscreen, idle-timer-based when playing in fullscreen */}
       <div
@@ -343,7 +374,7 @@ export function VideoPlayer({
           isPlaying={isPlaying}
           isMuted={isMute}
           volume={volume}
-          subtitles={currentEpisode.subtitles}
+          subtitles={mergedSubtitles}
           selectedSubtitle={selectedSubtitle}
           skipData={skipData?.[currentEpisode.filePath]}
           videoTitle={currentEpisode.fileName}

@@ -18,14 +18,18 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "electron-vite build && electron-builder --mac",
-    "build:linux": "electron-vite build && electron-builder --linux"
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "test": "vitest --run"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@jellyfin/libass-wasm": "^4.2.4",
     "ass-compiler": "^0.1.16",
     "discord-rpc": "^4.0.1",
     "electron-updater": "^6.3.9",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
     "lowdb": "^7.0.1",
     "uuid": "^10.0.0"
   },
@@ -38,6 +42,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-v8": "^4.1.9",
     "autoprefixer": "^10.4.20",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
@@ -46,6 +51,8 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "fast-check": "^4.8.0",
+    "happy-dom": "^20.10.6",
     "postcss": "^8.4.49",
     "prettier": "^3.7.4",
     "react": "^19.2.1",
@@ -53,6 +60,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",
     "vite": "^7.2.6",
+    "vitest": "^4.1.9",
     "zustand": "^5.0.2"
   }
 }
