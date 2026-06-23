@@ -5,6 +5,11 @@
  * near-MPV-quality output including \pos, \move, \fad, \kf, \t transforms,
  * karaoke, and embedded-font support.
  *
+ * Synchronization: uses `requestVideoFrameCallback` (rVFC) when available so
+ * subtitle timing updates fire exactly once per decoded video frame — the same
+ * sync point used by the video compositor — eliminating the jitter that occurs
+ * when `requestAnimationFrame` fires between video frames.
+ *
  * Falls back via `onFallback` prop when WebAssembly is unavailable.
  *
  * Requirements: 4.1, 4.3, 4.4, 4.6, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5
@@ -23,6 +28,7 @@ interface SubtitlesOctopusOptions {
   targetFps?: number
   timeOffset?: number
   renderAhead?: number
+  renderMode?: 'wasm-blend' | 'lossy'
   onReady?: () => void
   onError?: (error: unknown) => void
 }
@@ -31,12 +37,18 @@ interface SubtitlesOctopusInstance {
   dispose(): void
   resize(width?: number, height?: number): void
   setIsPaused(isPaused: boolean, currentTime?: number): void
+  setCurrentTime(currentTime: number): void
 }
 
 type SubtitlesOctopusCtor = new (options: SubtitlesOctopusOptions) => SubtitlesOctopusInstance
 
+// ─── rVFC support check ───────────────────────────────────────────────────────
+
+function supportsRVFC(video: HTMLVideoElement): boolean {
+  return typeof video.requestVideoFrameCallback === 'function'
+}
+
 // ─── Lazy loader ─────────────────────────────────────────────────────────────
-// Cache the class after the first import to avoid repeated dynamic imports.
 
 let cachedClass: SubtitlesOctopusCtor | null = null
 let loadPromise: Promise<SubtitlesOctopusCtor> | null = null
@@ -46,7 +58,6 @@ function getSubtitlesOctopus(): Promise<SubtitlesOctopusCtor> {
   if (loadPromise) return loadPromise
 
   loadPromise = import('@jellyfin/libass-wasm').then((mod) => {
-    // CJS default: mod.default in ESM interop, or mod itself
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ctor = (mod.default ?? mod) as SubtitlesOctopusCtor
     cachedClass = ctor
@@ -57,18 +68,12 @@ function getSubtitlesOctopus(): Promise<SubtitlesOctopusCtor> {
 }
 
 // ─── Worker URL ───────────────────────────────────────────────────────────────
-// Worker files are copied to src/renderer/public/libass/ so Vite serves them
-// at /libass/ in dev. In packaged builds electron-builder copies to
-// {resourcesPath}/libass/ via extraResources.
 
 function workerUrl(filename: string): string {
   if (import.meta.env.DEV) {
     return `/libass/${filename}`
   }
-  // process.resourcesPath on Windows uses backslashes; convert to forward
-  // slashes for a valid file:// URL (file:///C:/path/to/resources/libass/...)
   const resourcesPath = window.__resourcesPath.replace(/\\/g, '/')
-  // Ensure the path starts with a leading slash for file:/// (three slashes total)
   const sep = resourcesPath.startsWith('/') ? '' : '/'
   return `file://${sep}${resourcesPath}/libass/${filename}`
 }
@@ -101,8 +106,9 @@ export function SubtitleOctopusRenderer({
   const visibleRef = useRef(visible)
   visibleRef.current = visible
 
-  // Stable serialized key for fonts array — only changes when actual URLs change
+  // Stable key for fonts array — only changes when actual URLs change
   const fontsKey = fonts && fonts.length > 0 ? fonts.join('|') : ''
+
   // ── WASM check on mount ───────────────────────────────────────────────────
   useEffect(() => {
     if (typeof WebAssembly === 'undefined') {
@@ -112,7 +118,41 @@ export function SubtitleOctopusRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Create/replace instance when assContent changes ───────────────────────
+  // ── requestVideoFrameCallback sync loop ───────────────────────────────────
+  // Fires exactly once per decoded video frame — perfect sync point for
+  // updating SubtitlesOctopus timing before the frame is composited.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || !supportsRVFC(video)) return
+
+    let rvfcHandle: number | null = null
+
+    const onVideoFrame: VideoFrameRequestCallback = (_now, metadata) => {
+      const inst = instanceRef.current
+      if (inst && visibleRef.current) {
+        try {
+          // Use mediaTime — exact PTS of the video frame about to be displayed.
+          // This gives frame-accurate subtitle timing, eliminating drift
+          // between video frames and subtitle canvas updates.
+          inst.setCurrentTime(metadata.mediaTime)
+        } catch {
+          // Non-fatal — instance may be initializing
+        }
+      }
+      // Re-register for next frame
+      rvfcHandle = video.requestVideoFrameCallback(onVideoFrame)
+    }
+
+    rvfcHandle = video.requestVideoFrameCallback(onVideoFrame)
+
+    return () => {
+      if (rvfcHandle !== null) {
+        video.cancelVideoFrameCallback(rvfcHandle)
+      }
+    }
+  }, [videoRef])
+
+  // ── Create/replace instance when assContent, fonts, or targetFps changes ──
   useEffect(() => {
     if (typeof WebAssembly === 'undefined') return
 
@@ -121,20 +161,20 @@ export function SubtitleOctopusRenderer({
 
     let cancelled = false
 
-    // Dispose previous instance synchronously before async load (Property 7)
+    // Dispose previous instance before creating new one
     if (instanceRef.current) {
       try { instanceRef.current.dispose() } catch { /* ignore */ }
       instanceRef.current = null
     }
 
-    // Attach ResizeObserver immediately so resize events are captured from the
-    // moment the effect runs, even before the async instance is created.
     const ro = new ResizeObserver(() => {
       if (instanceRef.current) {
         try { instanceRef.current.resize() } catch { /* ignore */ }
       }
     })
     ro.observe(video)
+
+    const hasRVFC = supportsRVFC(video)
 
     getSubtitlesOctopus()
       .then((Ctor) => {
@@ -148,9 +188,12 @@ export function SubtitleOctopusRenderer({
             legacyWorkerUrl: workerUrl('subtitles-octopus-worker-legacy.js'),
             onError: (err) => console.error('[SubtitleOctopusRenderer] worker error:', err),
             targetFps,
+            // renderAhead: pre-render frames ahead to eliminate pop-in jitter.
+            // With rVFC we get perfect frame timing; renderAhead ensures the
+            // worker has rendered the frame before we need to display it.
+            renderAhead: 4,
             ...(fonts && fonts.length > 0 ? { fonts } : {})
           })
-          console.log(`[SubtitleOctopusRenderer] created instance with targetFps=${targetFps}`)
 
           if (cancelled) {
             try { instance.dispose() } catch { /* ignore */ }
@@ -158,8 +201,10 @@ export function SubtitleOctopusRenderer({
           }
 
           instanceRef.current = instance
+          console.log(
+            `[SubtitleOctopusRenderer] created instance — targetFps=${targetFps}, rVFC=${hasRVFC}`
+          )
 
-          // Sync initial visibility immediately after construction
           if (!visibleRef.current) {
             try { instance.setIsPaused(true) } catch { /* non-fatal */ }
           }
@@ -177,21 +222,51 @@ export function SubtitleOctopusRenderer({
       cancelled = true
       ro.disconnect()
     }
-    // Recreate instance when assContent, fonts, OR targetFps changes.
-    // fontsKey is a stable string derived from the fonts array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assContent, videoRef, fontsKey, targetFps])
 
-  // ── Visibility toggle — preserves instance (Property 8) ──────────────────
+  // ── Sync paused/play/seek state with SubtitlesOctopus — reduces jitter/CPU
   useEffect(() => {
-    const inst = instanceRef.current
-    if (!inst) return
-    try {
-      inst.setIsPaused(!visible)
-    } catch (err) {
-      console.warn('[SubtitleOctopusRenderer] setIsPaused threw:', err)
+    const video = videoRef.current
+    if (!video) return
+
+    const applyPaused = () => {
+      const inst = instanceRef.current
+      if (!inst) return
+      try {
+        // Pause worker when overlay hidden or when video is paused. Provide currentTime
+        // so the worker can render the correct frame immediately after unpausing.
+        inst.setIsPaused(!visibleRef.current || video.paused, video.currentTime)
+      } catch (err) {
+        console.warn('[SubtitleOctopusRenderer] setIsPaused threw:', err)
+      }
     }
-  }, [visible])
+
+    const onPlay = () => applyPaused()
+    const onPause = () => applyPaused()
+    const onSeeked = () => {
+      const inst = instanceRef.current
+      if (!inst) return
+      try {
+        inst.setCurrentTime(video.currentTime)
+      } catch (err) {
+        console.warn('[SubtitleOctopusRenderer] setCurrentTime threw:', err)
+      }
+    }
+
+    // Initial sync
+    applyPaused()
+
+    video.addEventListener('play', onPlay)
+    video.addEventListener('pause', onPause)
+    video.addEventListener('seeked', onSeeked)
+
+    return () => {
+      video.removeEventListener('play', onPlay)
+      video.removeEventListener('pause', onPause)
+      video.removeEventListener('seeked', onSeeked)
+    }
+  }, [videoRef, visible])
 
   // ── Unmount cleanup ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -203,6 +278,5 @@ export function SubtitleOctopusRenderer({
     }
   }, [])
 
-  // SubtitlesOctopus appends its own canvas to video.parentElement — nothing to render
   return null
 }
