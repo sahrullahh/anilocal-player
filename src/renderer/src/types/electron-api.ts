@@ -64,6 +64,7 @@ export type ElectronAPI = {
   readSubtitleFile: (path: string) => Promise<string>
   readFontFile: (path: string) => Promise<Buffer | { error: string }>
   probeEmbeddedTracks: (videoPath: string) => Promise<EmbeddedTrackDescriptor[] | { error: string }>
+  probeVideoFps: (videoPath: string) => Promise<number | null>
   extractEmbeddedTrack: (videoPath: string, trackIndex: number) => Promise<{ path: string } | { error: string }>
   extractFonts: (videoPath: string) => Promise<{ paths: string[] } | { error: string }>
   onOpenFile: (callback: (filePath: string) => void) => () => void

@@ -29,6 +29,19 @@ export function registerSubtitleIpc(): void {
   })
 
   /**
+   * Returns the FPS of the first video stream.
+   * Renderer calls: ipcRenderer.invoke('subtitle:probeVideoFps', videoPath)
+   * Output: number | null
+   */
+  ipcMain.handle('subtitle:probeVideoFps', async (_, videoPath: string) => {
+    try {
+      return await embeddedSubtitleService.probeVideoFps(videoPath)
+    } catch {
+      return null
+    }
+  })
+
+  /**
    * Probes an MKV file for embedded subtitle tracks.
    * Renderer calls: ipcRenderer.invoke('subtitle:probeEmbeddedTracks', videoPath)
    * Output: EmbeddedTrackDescriptor[]  |  { error: string }

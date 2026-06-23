@@ -20,6 +20,9 @@ interface SubtitlesOctopusOptions {
   workerUrl: string
   legacyWorkerUrl: string
   fonts?: string[]
+  targetFps?: number
+  timeOffset?: number
+  renderAhead?: number
   onReady?: () => void
   onError?: (error: unknown) => void
 }
@@ -56,13 +59,18 @@ function getSubtitlesOctopus(): Promise<SubtitlesOctopusCtor> {
 // ─── Worker URL ───────────────────────────────────────────────────────────────
 // Worker files are copied to src/renderer/public/libass/ so Vite serves them
 // at /libass/ in dev. In packaged builds electron-builder copies to
-// {resourcesPath}/libass/ and we use a file:// URL.
+// {resourcesPath}/libass/ via extraResources.
 
 function workerUrl(filename: string): string {
   if (import.meta.env.DEV) {
     return `/libass/${filename}`
   }
-  return `file://${window.__resourcesPath}/libass/${filename}`
+  // process.resourcesPath on Windows uses backslashes; convert to forward
+  // slashes for a valid file:// URL (file:///C:/path/to/resources/libass/...)
+  const resourcesPath = window.__resourcesPath.replace(/\\/g, '/')
+  // Ensure the path starts with a leading slash for file:/// (three slashes total)
+  const sep = resourcesPath.startsWith('/') ? '' : '/'
+  return `file://${sep}${resourcesPath}/libass/${filename}`
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -72,6 +80,8 @@ export type SubtitleOctopusRendererProps = {
   videoRef: React.RefObject<HTMLVideoElement | null>
   visible: boolean
   fonts?: string[]
+  /** Target FPS matching the video's frame rate — defaults to 60 */
+  targetFps?: number
   onFallback: () => void
 }
 
@@ -82,6 +92,7 @@ export function SubtitleOctopusRenderer({
   videoRef,
   visible,
   fonts,
+  targetFps = 60,
   onFallback
 }: SubtitleOctopusRendererProps) {
   const instanceRef = useRef<SubtitlesOctopusInstance | null>(null)
@@ -92,7 +103,6 @@ export function SubtitleOctopusRenderer({
 
   // Stable serialized key for fonts array — only changes when actual URLs change
   const fontsKey = fonts && fonts.length > 0 ? fonts.join('|') : ''
-
   // ── WASM check on mount ───────────────────────────────────────────────────
   useEffect(() => {
     if (typeof WebAssembly === 'undefined') {
@@ -137,8 +147,10 @@ export function SubtitleOctopusRenderer({
             workerUrl: workerUrl('subtitles-octopus-worker.js'),
             legacyWorkerUrl: workerUrl('subtitles-octopus-worker-legacy.js'),
             onError: (err) => console.error('[SubtitleOctopusRenderer] worker error:', err),
+            targetFps,
             ...(fonts && fonts.length > 0 ? { fonts } : {})
           })
+          console.log(`[SubtitleOctopusRenderer] created instance with targetFps=${targetFps}`)
 
           if (cancelled) {
             try { instance.dispose() } catch { /* ignore */ }
@@ -165,12 +177,10 @@ export function SubtitleOctopusRenderer({
       cancelled = true
       ro.disconnect()
     }
-    // Recreate instance when assContent OR fonts change.
-    // fontsKey is a stable string derived from the fonts array so the effect
-    // fires when font URLs arrive (e.g. after extractFonts completes) without
-    // triggering on every render from array identity churn.
+    // Recreate instance when assContent, fonts, OR targetFps changes.
+    // fontsKey is a stable string derived from the fonts array.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assContent, videoRef, fontsKey])
+  }, [assContent, videoRef, fontsKey, targetFps])
 
   // ── Visibility toggle — preserves instance (Property 8) ──────────────────
   useEffect(() => {

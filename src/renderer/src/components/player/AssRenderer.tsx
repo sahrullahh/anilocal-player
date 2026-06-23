@@ -19,6 +19,8 @@ type AssRendererProps = {
   visible: boolean
   /** Optional file:// URLs for MKV-embedded font attachments (passed to SubtitleOctopus) */
   fonts?: string[]
+  /** Target render FPS matching the video's frame rate (default 60) */
+  targetFps?: number
 }
 
 // ─── Router / public export ───────────────────────────────────────────────────

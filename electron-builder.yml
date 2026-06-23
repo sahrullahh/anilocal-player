@@ -14,11 +14,12 @@ asarUnpack:
   - node_modules/ffmpeg-static/**
   - node_modules/ffprobe-static/**
 extraResources:
-  - from: node_modules/@jellyfin/libass-wasm/dist/
+  - from: node_modules/@jellyfin/libass-wasm/dist/js/
     to: libass/
     filter:
       - '*.js'
       - '*.wasm'
+      - '*.woff2'
 fileAssociations:
   - ext: mp4
     name: MP4 Video

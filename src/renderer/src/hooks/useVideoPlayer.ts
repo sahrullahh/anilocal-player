@@ -60,7 +60,10 @@ export function useVideoPlayer() {
   }, [isMute, setIsMute])
 
   const toggleFullscreen = useCallback(() => {
-    const container = videoRef.current?.parentElement
+    // Use the video's grandparent (outer player div) for fullscreen so the
+    // entire player — including controls — enters fullscreen, not just the
+    // inner video wrapper div.
+    const container = videoRef.current?.parentElement?.parentElement
     if (!container) return
 
     if (!document.fullscreenElement) {

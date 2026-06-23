@@ -68,7 +68,7 @@ video::-webkit-media-controls-enclosure {
   display: none !important;
 }
 
-/* SubtitlesOctopus canvas overlay — must sit exactly over the video */
+/* SubtitlesOctopus canvas overlay — sits over the video but under player controls */
 .libassjs-canvas-parent {
   position: absolute !important;
   top: 0 !important;
@@ -76,10 +76,12 @@ video::-webkit-media-controls-enclosure {
   width: 100% !important;
   height: 100% !important;
   pointer-events: none !important;
-  z-index: 20;
+  z-index: 10;
 }
 
 .libassjs-canvas-parent .libassjs-canvas {
   position: absolute !important;
   pointer-events: none !important;
+  /* SubtitlesOctopus calculates canvas size from video.offsetWidth/Height,
+     so subtitles naturally render within the letterboxed video area */
 }

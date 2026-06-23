@@ -89,6 +89,7 @@ export interface API {
   probeEmbeddedTracks: (
     videoPath: string
   ) => Promise<EmbeddedTrackDescriptor[] | { error: string }>
+  probeVideoFps: (videoPath: string) => Promise<number | null>
   extractEmbeddedTrack: (
     videoPath: string,
     trackIndex: number

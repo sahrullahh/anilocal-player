@@ -1,6 +1,7 @@
 import { useVideoPlayer } from '../../hooks/useVideoPlayer'
 import { useSubtitle } from '../../hooks/useSubtitle'
 import { useEmbeddedTracks } from '../../hooks/useEmbeddedTracks'
+import { useVideoFps } from '../../hooks/useVideoFps'
 import { useAutoplay } from '../../hooks/useAutoplay'
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts'
 import { useIdleMouseHide } from '../../hooks/useIdleMouseHide'
@@ -58,6 +59,8 @@ export function VideoPlayer({
 
   // Probe embedded subtitle tracks for MKV episodes
   const embeddedSubtitles = useEmbeddedTracks(currentEpisode)
+  // Detect actual video FPS for frame-accurate subtitle rendering
+  const videoFps = useVideoFps(currentEpisode)
 
   // Merge: embedded tracks prepended before the episode's external tracks.
   // useMemo prevents a new array identity on every render, which would cause
@@ -295,70 +298,76 @@ export function VideoPlayer({
 
   return (
     <div className="flex-1 bg-dark-950 relative group">
-      <video
-        ref={videoRef}
-        src={videoSrc}
-        onLoadedMetadata={onLoadedMetadata}
-        onPlay={() => {
-          onPlay()
-          const video = videoRef.current
-          void syncDiscordPresence(true, true, video?.currentTime ?? currentTime, video?.duration ?? duration)
-        }}
-        onPause={() => {
-          onPause()
-          const video = videoRef.current
-          void syncDiscordPresence(
-            false,
-            true,
-            video?.currentTime ?? currentTime,
-            video?.duration ?? duration
-          )
-        }}
-        onTimeUpdate={() => {
-          const video = videoRef.current
-          onTimeUpdate()
-          void syncDiscordPresence(
-            isPlaying,
-            false,
-            video?.currentTime ?? currentTime,
-            video?.duration ?? duration
-          )
-        }}
-        onError={onError}
-        onWaiting={() => setIsBuffering(true)}
-        onCanPlay={() => setIsBuffering(false)}
-        onPlaying={() => setIsBuffering(false)}
-        className="w-full h-full"
-      >
-        {/* Only use <track> for non-ASS formats (VTT/SRT-converted-to-VTT) */}
-        {subtitleSrc && !isAssSubtitle && (
-          <track
-            kind="subtitles"
-            src={subtitleSrc}
-            srcLang="und"
-            label={selectedSubtitle?.label || 'Subtitle'}
-            default
+      {/* Video + subtitle overlay wrapper — isolates SubtitlesOctopus canvas
+          so it only covers the video area, not the controls bar */}
+      <div className="absolute inset-0">
+        <video
+          ref={videoRef}
+          src={videoSrc}
+          onLoadedMetadata={onLoadedMetadata}
+          onPlay={() => {
+            onPlay()
+            const video = videoRef.current
+            void syncDiscordPresence(true, true, video?.currentTime ?? currentTime, video?.duration ?? duration)
+          }}
+          onPause={() => {
+            onPause()
+            const video = videoRef.current
+            void syncDiscordPresence(
+              false,
+              true,
+              video?.currentTime ?? currentTime,
+              video?.duration ?? duration
+            )
+          }}
+          onTimeUpdate={() => {
+            const video = videoRef.current
+            onTimeUpdate()
+            void syncDiscordPresence(
+              isPlaying,
+              false,
+              video?.currentTime ?? currentTime,
+              video?.duration ?? duration
+            )
+          }}
+          onError={onError}
+          onWaiting={() => setIsBuffering(true)}
+          onCanPlay={() => setIsBuffering(false)}
+          onPlaying={() => setIsBuffering(false)}
+          className="w-full h-full"
+        >
+          {/* Only use <track> for non-ASS formats (VTT/SRT-converted-to-VTT) */}
+          {subtitleSrc && !isAssSubtitle && (
+            <track
+              kind="subtitles"
+              src={subtitleSrc}
+              srcLang="und"
+              label={selectedSubtitle?.label || 'Subtitle'}
+              default
+            />
+          )}
+        </video>
+
+        {/* ASS/SSA renderer — SubtitlesOctopus appends its canvas here,
+            inside this wrapper so it stays within the video area */}
+        {isAssSubtitle && assContent && (
+          <AssRenderer
+            assContent={assContent}
+            videoRef={videoRef}
+            visible={!!selectedSubtitle}
+            fonts={fontUrls}
+            targetFps={videoFps}
           />
         )}
-      </video>
 
-      {/* ASS/SSA canvas renderer — renders on top of video */}
-      {isAssSubtitle && assContent && (
-        <AssRenderer
-          assContent={assContent}
-          videoRef={videoRef}
-          visible={!!selectedSubtitle}
-          fonts={fontUrls}
-        />
-      )}
-
-      {/* Buffering / loading indicator */}
-      <BufferingSpinner visible={isBuffering} />
+        {/* Buffering / loading indicator */}
+        <BufferingSpinner visible={isBuffering} />
+      </div>
 
       {/* Overlay: always visible when paused, hover-based when playing outside fullscreen, idle-timer-based when playing in fullscreen */}
       <div
         className={[
-          'absolute inset-0 transition-opacity duration-300',
+          'absolute inset-0 transition-opacity duration-300 z-20',
           !isPlaying
             ? 'opacity-100'
             : isFullscreen

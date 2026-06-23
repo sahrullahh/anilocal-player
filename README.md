@@ -271,7 +271,7 @@ Contoh file JSON yang bisa di-import:
       "outroEnd": 1460
     }
   ]
-}
+}te
 ```
 
 Atau sebagai array langsung:

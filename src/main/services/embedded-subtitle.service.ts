@@ -26,6 +26,7 @@ interface FfprobeStream {
   index: number
   codec_type: string
   codec_name?: string
+  r_frame_rate?: string  // e.g. "24000/1001" for 23.976fps, "60/1" for 60fps
   tags?: {
     language?: string
     [key: string]: string | undefined
@@ -124,6 +125,45 @@ class EmbeddedSubtitleService {
 
     if (!ffmpegOk || !ffprobeOk) {
       this.extractionAvailable = false
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // probeVideoFps
+  // -------------------------------------------------------------------------
+
+  /**
+   * Returns the frame rate of the first video stream in the file.
+   * Parses ffprobe's `r_frame_rate` field (e.g. "24000/1001" → 23.976).
+   * Returns null if the file has no video stream or probe fails.
+   */
+  async probeVideoFps(videoPath: string): Promise<number | null> {
+    if (!this.extractionAvailable) return null
+
+    try {
+      await fs.access(videoPath, fsConstants.R_OK)
+    } catch {
+      return null
+    }
+
+    const { ffprobePath } = getBinaryPaths()
+    const args = ['-v', 'quiet', '-print_format', 'json', '-show_streams', videoPath]
+    const { stdout, code } = await runProcess(ffprobePath, args)
+    if (code !== 0) return null
+
+    try {
+      const parsed = JSON.parse(stdout) as FfprobeOutput
+      const videoStream = (parsed.streams ?? []).find((s) => s.codec_type === 'video')
+      if (!videoStream?.r_frame_rate) return null
+
+      // r_frame_rate is a fraction string like "24000/1001" or "60/1"
+      const [num, den] = videoStream.r_frame_rate.split('/').map(Number)
+      if (!den || den === 0) return null
+      const fps = num / den
+      // Clamp to a sane range: 1–240fps
+      return fps >= 1 && fps <= 240 ? fps : null
+    } catch {
+      return null
     }
   }
 

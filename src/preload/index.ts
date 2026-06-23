@@ -87,6 +87,8 @@ const api = {
   readFontFile: (path: string) => ipcRenderer.invoke('subtitle:readFontFile', path) as Promise<Buffer | { error: string }>,
   probeEmbeddedTracks: (videoPath: string) =>
     ipcRenderer.invoke('subtitle:probeEmbeddedTracks', videoPath),
+  probeVideoFps: (videoPath: string) =>
+    ipcRenderer.invoke('subtitle:probeVideoFps', videoPath),
   extractEmbeddedTrack: (videoPath: string, trackIndex: number) =>
     ipcRenderer.invoke('subtitle:extractEmbeddedTrack', videoPath, trackIndex),
   extractFonts: (videoPath: string) => ipcRenderer.invoke('subtitle:extractFonts', videoPath),
