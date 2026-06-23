@@ -86,7 +86,7 @@ export function VideoPlayer({
   }, [currentEpisode])
 
   const { countdown, cancelAutoplay } = useAutoplay(videoRef)
-  const { controlsVisible } = useIdleMouseHide(isFullscreen)
+  const { controlsVisible } = useIdleMouseHide(isFullscreen, isPlaying)
   const lastPresenceUpdateRef = useRef(0)
 
   useKeyboardShortcuts({
@@ -368,13 +368,7 @@ export function VideoPlayer({
       <div
         className={[
           'absolute inset-0 transition-opacity duration-300 z-20',
-          !isPlaying
-            ? 'opacity-100'
-            : isFullscreen
-              ? controlsVisible
-                ? 'opacity-100'
-                : 'opacity-0 pointer-events-none'
-              : 'opacity-0 group-hover:opacity-100'
+          !isPlaying || controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
         ].join(' ')}
       >
         <PlayerControls

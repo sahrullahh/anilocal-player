@@ -4,10 +4,10 @@ const IDLE_TIMEOUT_MS = 3000
 
 /**
  * Returns whether the controls should be visible.
- * In fullscreen mode the controls hide after IDLE_TIMEOUT_MS of no mouse movement.
- * Outside fullscreen the controls are always visible (handled by CSS hover).
+ * When playing, controls hide after IDLE_TIMEOUT_MS of no mouse movement.
+ * When paused, controls are always visible.
  */
-export function useIdleMouseHide(isFullscreen: boolean) {
+export function useIdleMouseHide(isFullscreen: boolean, isPlaying = false) {
   const [controlsVisible, setControlsVisible] = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -22,8 +22,8 @@ export function useIdleMouseHide(isFullscreen: boolean) {
   }, [])
 
   useEffect(() => {
-    if (!isFullscreen) {
-      // Outside fullscreen: always show, clear any pending timer
+    // If not playing, always show controls and clear timer/listeners
+    if (!isPlaying) {
       setControlsVisible(true)
       if (timerRef.current) {
         clearTimeout(timerRef.current)
@@ -32,7 +32,7 @@ export function useIdleMouseHide(isFullscreen: boolean) {
       return
     }
 
-    // Enter fullscreen: start the idle timer immediately
+    // When playing: start/reset the idle timer and listen for activity
     resetTimer()
 
     document.addEventListener('mousemove', resetTimer)
@@ -43,9 +43,12 @@ export function useIdleMouseHide(isFullscreen: boolean) {
       document.removeEventListener('mousemove', resetTimer)
       document.removeEventListener('mousedown', resetTimer)
       document.removeEventListener('keydown', resetTimer)
-      if (timerRef.current) clearTimeout(timerRef.current)
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
     }
-  }, [isFullscreen, resetTimer])
+  }, [isFullscreen, isPlaying, resetTimer])
 
   return { controlsVisible }
 }
