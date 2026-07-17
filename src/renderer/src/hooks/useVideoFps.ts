@@ -47,7 +47,7 @@ export function useVideoFps(currentEpisode: Episode | null): number {
 
 /**
  * Maps a raw FPS value to the nearest standard frame rate.
- * Handles fractional rates like 23.976, 29.97, 59.94.
+ * Preserves fractional rates (23.976, 29.97, 59.94) for accurate sync.
  */
 function roundToCommonFps(fps: number): number {
   const common = [23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 120]
@@ -60,9 +60,6 @@ function roundToCommonFps(fps: number): number {
       nearest = f
     }
   }
-  // Snap fractional rates (23.976 → 24, 29.97 → 30, 59.94 → 60)
-  if (nearest === 23.976) return 24
-  if (nearest === 29.97) return 30
-  if (nearest === 59.94) return 60
+  // Return the nearest standard FPS without snapping fractional rates
   return nearest
 }

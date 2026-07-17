@@ -37,6 +37,15 @@ interface FfprobeOutput {
   streams: FfprobeStream[]
 }
 
+/** Shape of the `format` section in ffprobe's JSON output (when -show_format is used) */
+interface FfprobeFormat {
+  duration?: string // seconds, as a decimal string, e.g. "1434.567000"
+}
+
+interface FfprobeFormatOutput {
+  format?: FfprobeFormat
+}
+
 /**
  * Spawns a process and collects its stdout/stderr, resolving with exit code.
  * Uses `child_process.spawn` (not `exec`) so stdout is streamed, not buffered
@@ -162,6 +171,38 @@ class EmbeddedSubtitleService {
       const fps = num / den
       // Clamp to a sane range: 1–240fps
       return fps >= 1 && fps <= 240 ? fps : null
+    } catch {
+      return null
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // probeVideoDuration
+  // -------------------------------------------------------------------------
+
+  /**
+   * Returns the duration (in seconds) of a video file, read from ffprobe's
+   * container-level `format.duration` field. Returns null if the file has no
+   * readable duration or the probe fails.
+   */
+  async probeVideoDuration(videoPath: string): Promise<number | null> {
+    if (!this.extractionAvailable) return null
+
+    try {
+      await fs.access(videoPath, fsConstants.R_OK)
+    } catch {
+      return null
+    }
+
+    const { ffprobePath } = getBinaryPaths()
+    const args = ['-v', 'quiet', '-print_format', 'json', '-show_format', videoPath]
+    const { stdout, code } = await runProcess(ffprobePath, args)
+    if (code !== 0) return null
+
+    try {
+      const parsed = JSON.parse(stdout) as FfprobeFormatOutput
+      const duration = parsed.format?.duration ? parseFloat(parsed.format.duration) : NaN
+      return Number.isFinite(duration) && duration > 0 ? duration : null
     } catch {
       return null
     }

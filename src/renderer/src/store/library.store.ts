@@ -10,6 +10,7 @@ interface LibraryState {
   // Actions
   loadLibrary: () => Promise<void>
   addFolder: () => Promise<void>
+  reorderLibrary: (fromIndex: number, toIndex: number) => Promise<void>
   removeLibrary: (id: string) => Promise<void>
   setCurrentAnime: (anime: Anime | null) => void
 }
@@ -85,6 +86,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     } finally {
       set({ isLoading: false })
     }
+  },
+
+  reorderLibrary: async (fromIndex: number, toIndex: number) => {
+    const { libraries } = get()
+    if (fromIndex === toIndex) return
+    const updated = [...libraries]
+    const [moved] = updated.splice(fromIndex, 1)
+    updated.splice(toIndex, 0, moved)
+    await window.api.saveLibrary(updated)
+    set({ libraries: updated })
   },
 
   removeLibrary: async (id: string) => {

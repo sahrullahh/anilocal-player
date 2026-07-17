@@ -42,6 +42,19 @@ export function registerSubtitleIpc(): void {
   })
 
   /**
+   * Returns the duration (in seconds) of a video file.
+   * Renderer calls: ipcRenderer.invoke('subtitle:probeVideoDuration', videoPath)
+   * Output: number | null
+   */
+  ipcMain.handle('subtitle:probeVideoDuration', async (_, videoPath: string) => {
+    try {
+      return await embeddedSubtitleService.probeVideoDuration(videoPath)
+    } catch {
+      return null
+    }
+  })
+
+  /**
    * Probes an MKV file for embedded subtitle tracks.
    * Renderer calls: ipcRenderer.invoke('subtitle:probeEmbeddedTracks', videoPath)
    * Output: EmbeddedTrackDescriptor[]  |  { error: string }

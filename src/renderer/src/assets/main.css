@@ -3,10 +3,132 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme: Slate — blue primary ──────────────────────────────────── */
+:root,
+[data-theme='slate'] {
+  --c-50:  #f9fafb;
+  --c-100: #f3f4f6;
+  --c-200: #e5e7eb;
+  --c-300: #d1d5db;
+  --c-400: #9ca3af;
+  --c-500: #6b7280;
+  --c-600: #4b5563;
+  --c-700: #374151;
+  --c-800: #1f2937;
+  --c-900: #111827;
+  --c-950: #030712;
+
+  /* primary: Tailwind blue */
+  --p-50:  #eff6ff;
+  --p-100: #dbeafe;
+  --p-200: #bfdbfe;
+  --p-300: #93c5fd;
+  --p-400: #60a5fa;
+  --p-500: #3b82f6;
+  --p-600: #2563eb;
+  --p-700: #1d4ed8;
+  --p-800: #1e40af;
+  --p-900: #1e3a8a;
+  --p-950: #172554;
+}
+
+/* ── Theme: Neutral — indigo primary ───────────────────────────────── */
+[data-theme='neutral'] {
+  --c-50:  #fafafa;
+  --c-100: #f5f5f5;
+  --c-200: #e5e5e5;
+  --c-300: #d4d4d4;
+  --c-400: #a3a3a3;
+  --c-500: #737373;
+  --c-600: #525252;
+  --c-700: #404040;
+  --c-800: #262626;
+  --c-900: #171717;
+  --c-950: #0a0a0a;
+
+  /* primary: Tailwind indigo */
+  --p-50:  #eef2ff;
+  --p-100: #e0e7ff;
+  --p-200: #c7d2fe;
+  --p-300: #a5b4fc;
+  --p-400: #818cf8;
+  --p-500: #6366f1;
+  --p-600: #4f46e5;
+  --p-700: #4338ca;
+  --p-800: #3730a3;
+  --p-900: #312e81;
+  --p-950: #1e1b4b;
+}
+
+/* ── Theme: Light — violet primary ─────────────────────────────────── */
+[data-theme='light'] {
+  --c-50:  #09090b;
+  --c-100: #18181b;
+  --c-200: #27272a;
+  --c-300: #3f3f46;
+  --c-400: #52525b;
+  --c-500: #71717a;
+  --c-600: #a1a1aa;
+  --c-700: #d4d4d8;
+  --c-800: #e4e4e7;
+  --c-900: #f4f4f5;
+  --c-950: #fafafa;
+
+  /* primary: Tailwind violet */
+  --p-50:  #f5f3ff;
+  --p-100: #ede9fe;
+  --p-200: #ddd6fe;
+  --p-300: #c4b5fd;
+  --p-400: #a78bfa;
+  --p-500: #8b5cf6;
+  --p-600: #7c3aed;
+  --p-700: #6d28d9;
+  --p-800: #5b21b6;
+  --p-900: #4c1d95;
+  --p-950: #2e1065;
+}
+
+/* ── Light theme: text remapping ───────────────────────────────── */
+[data-theme='light'] body { color: #18181b; }
+
+/* Text inside bg-dark-* surfaces (inverted to light) → dark */
+[data-theme='light'] [class*='bg-dark-'] .text-white { color: #18181b; }
+[data-theme='light'] [class*='bg-dark-'] .text-gray-200 { color: #27272a; }
+[data-theme='light'] [class*='bg-dark-'] .text-gray-300 { color: #3f3f46; }
+[data-theme='light'] [class*='bg-dark-'] .text-gray-400 { color: #52525b; }
+[data-theme='light'] [class*='bg-dark-'] .text-gray-500 { color: #71717a; }
+[data-theme='light'] [class*='bg-dark-'] .text-gray-600 { color: #a1a1aa; }
+[data-theme='light'] [class*='bg-dark-'] .text-gray-700 { color: #d4d4d8; }
+
+/* SettingsModal tab bar (text-gray-500 outside bg-dark-* parent) */
+[data-theme='light'] .border-dark-800 + button .text-gray-500 { color: #71717a; }
+
+/* Primary-colored backgrounds → always white text */
+[data-theme='light'] .bg-blue-600,
+[data-theme='light'] .bg-blue-700,
+[data-theme='light'] .bg-purple-700,
+[data-theme='light'] .bg-green-700 { color: #fff !important; }
+[data-theme='light'] .bg-blue-600 .text-white,
+[data-theme='light'] .bg-blue-700 .text-white,
+[data-theme='light'] .bg-blue-600 .text-gray-300,
+[data-theme='light'] .bg-blue-700 .text-gray-300,
+[data-theme='light'] .bg-blue-600\/10 .text-blue-300,
+[data-theme='light'] .text-blue-100,
+[data-theme='light'] .text-purple-100,
+[data-theme='light'] .text-green-100,
+[data-theme='light'] .text-blue-300 { color: #fff !important; }
+
+/* Player controls: always on dark gradient/backdrop → restore light text */
+[data-theme='light'] [class*='from-black'] .text-white { color: #f3f4f6 !important; }
+[data-theme='light'] [class*='from-black'] .text-gray-300 { color: #d1d5db !important; }
+[data-theme='light'] [class*='from-black'] .text-gray-400 { color: #9ca3af !important; }
+[data-theme='light'] [class*='from-black'] .text-gray-500 { color: #6b7280 !important; }
+[data-theme='light'] [class*='from-black'] .text-xs { color: #d1d5db !important; }
+
+
+/* ── Base ──────────────────────────────────────────────────────────── */
 @layer base {
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
   body {
     @apply bg-dark-950 text-white;
     margin: 0;
@@ -14,61 +136,32 @@
     overflow: hidden;
     user-select: none;
   }
-  #root {
-    @apply w-screen h-screen;
-  }
+  #root { @apply w-screen h-screen; }
 }
 
+/* ── Animations ────────────────────────────────────────────────────── */
 @layer utilities {
   .animate-slideUp {
     animation: slideUp 0.3s ease-out;
   }
-
   @keyframes slideUp {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+/* ── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { @apply bg-dark-900; }
+::-webkit-scrollbar-thumb { @apply bg-dark-700 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-dark-600; }
 
-::-webkit-scrollbar-track {
-  @apply bg-dark-900;
-}
+/* ── Video ─────────────────────────────────────────────────────────── */
+video { object-fit: contain; background: #000; }
+video::-webkit-media-controls { display: none !important; }
+video::-webkit-media-controls-enclosure { display: none !important; }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-dark-700 rounded-full;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-dark-600;
-}
-
-/* Video element */
-video {
-  object-fit: contain;
-  background: #000;
-}
-
-video::-webkit-media-controls {
-  display: none !important;
-}
-
-video::-webkit-media-controls-enclosure {
-  display: none !important;
-}
-
-/* SubtitlesOctopus canvas overlay — sits over the video but under player controls */
+/* ── ASS/SSA canvas ───────────────────────────────────────────────── */
 .libassjs-canvas-parent {
   position: absolute !important;
   top: 0 !important;
@@ -78,10 +171,7 @@ video::-webkit-media-controls-enclosure {
   pointer-events: none !important;
   z-index: 10;
 }
-
 .libassjs-canvas-parent .libassjs-canvas {
   position: absolute !important;
   pointer-events: none !important;
-  /* SubtitlesOctopus calculates canvas size from video.offsetWidth/Height,
-     so subtitles naturally render within the letterboxed video area */
 }

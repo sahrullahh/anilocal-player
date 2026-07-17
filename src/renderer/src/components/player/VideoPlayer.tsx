@@ -8,6 +8,7 @@ import { useIdleMouseHide } from '../../hooks/useIdleMouseHide'
 import { usePlayerStore } from '../../store/player.store'
 import { useLibraryStore } from '../../store/library.store'
 import { useLibrarySettingsStore } from '../../store/library-settings.store'
+import { useSettingsStore } from '../../store/settings.store'
 import { PlayerControls } from './PlayerControls'
 import { SkipOverlay } from './SkipOverlay'
 import { AutoplayCountdown } from './AutoplayCountdown'
@@ -35,6 +36,7 @@ export function VideoPlayer({
   const { currentEpisode, skipData, updateSkipData, playEpisode, setPlaylist } = usePlayerStore()
   const { addFolder } = useLibraryStore()
   const { centerMode, setCenterMode } = useLibrarySettingsStore()
+  const { autoSkipIntroOutro } = useSettingsStore()
   const {
     videoRef,
     videoSrc,
@@ -70,10 +72,16 @@ export function VideoPlayer({
     [embeddedSubtitles, currentEpisode?.subtitles]
   )
 
-  const { selectedSubtitle, subtitleSrc, assContent, isAssSubtitle, fontUrls, setSelectedSubtitle, cycleSubtitle, disableSubtitle } = useSubtitle(
-    mergedSubtitles,
-    currentEpisode?.filePath
-  )
+  const {
+    selectedSubtitle,
+    subtitleSrc,
+    assContent,
+    isAssSubtitle,
+    fontUrls,
+    setSelectedSubtitle,
+    cycleSubtitle,
+    disableSubtitle
+  } = useSubtitle(mergedSubtitles, currentEpisode?.filePath)
 
   // ── Buffering state ───────────────────────────────────────────────────────
   // true when video fires `waiting` (needs data) or when a new src is set,
@@ -85,7 +93,7 @@ export function VideoPlayer({
     if (currentEpisode) setIsBuffering(true)
   }, [currentEpisode])
 
-  const { countdown, cancelAutoplay } = useAutoplay(videoRef)
+  const { countdown, episodeEnded, cancelAutoplay, dismissEnded } = useAutoplay(videoRef)
   const { controlsVisible } = useIdleMouseHide(isFullscreen, isPlaying)
   const lastPresenceUpdateRef = useRef(0)
 
@@ -104,7 +112,9 @@ export function VideoPlayer({
       }
     },
     cycleSubtitle,
-    disableSubtitle
+    disableSubtitle,
+    toggleLibrary: onToggleLibrary,
+    toggleEpisodes: onToggleEpisodes
   })
 
   useEffect(() => {
@@ -116,6 +126,48 @@ export function VideoPlayer({
 
     return () => video.removeEventListener('click', handleClick)
   }, [videoRef, togglePlay])
+
+  // ── Auto skip intro/outro ───────────────────────────────────────────────
+  // When enabled, automatically seeks past the intro/outro range as soon as
+  // playback enters it, instead of waiting for the user to click Skip.
+  const autoSkippedRangeRef = useRef<string | null>(null)
+  useEffect(() => {
+    // Reset the "already skipped" guard whenever the episode changes
+    autoSkippedRangeRef.current = null
+  }, [currentEpisode?.filePath])
+
+  useEffect(() => {
+    if (!autoSkipIntroOutro || !currentEpisode) return
+    const current = skipData?.[currentEpisode.filePath]
+    if (!current) return
+
+    if (
+      current.introStart !== undefined &&
+      current.introEnd !== undefined &&
+      currentTime >= current.introStart &&
+      currentTime < current.introEnd
+    ) {
+      const rangeKey = `intro:${current.introStart}:${current.introEnd}`
+      if (autoSkippedRangeRef.current !== rangeKey) {
+        autoSkippedRangeRef.current = rangeKey
+        setSeek(current.introEnd)
+      }
+      return
+    }
+
+    if (
+      current.outroStart !== undefined &&
+      current.outroEnd !== undefined &&
+      currentTime >= current.outroStart &&
+      currentTime < current.outroEnd
+    ) {
+      const rangeKey = `outro:${current.outroStart}:${current.outroEnd}`
+      if (autoSkippedRangeRef.current !== rangeKey) {
+        autoSkippedRangeRef.current = rangeKey
+        setSeek(current.outroEnd)
+      }
+    }
+  }, [autoSkipIntroOutro, currentEpisode, skipData, currentTime, setSeek])
 
   const parseEpisodeNumber = (title: string): number => {
     const match = title.match(/(?:ep(?:isode)?\s*)(\d+)/i) || title.match(/(\d+)/)
@@ -308,7 +360,12 @@ export function VideoPlayer({
           onPlay={() => {
             onPlay()
             const video = videoRef.current
-            void syncDiscordPresence(true, true, video?.currentTime ?? currentTime, video?.duration ?? duration)
+            void syncDiscordPresence(
+              true,
+              true,
+              video?.currentTime ?? currentTime,
+              video?.duration ?? duration
+            )
           }}
           onPause={() => {
             onPause()
@@ -364,6 +421,14 @@ export function VideoPlayer({
         <BufferingSpinner visible={isBuffering} />
       </div>
 
+      {/* Watermark logo — always visible, top-right, independent of controls hide/show */}
+      <img
+        src="/wm.png"
+        alt=""
+        draggable={false}
+        className="absolute top-4 right-5 h-14 w-auto object-contain opacity-1 pointer-events-none select-none z-30"
+      />
+
       {/* Overlay: always visible when paused, hover-based when playing outside fullscreen, idle-timer-based when playing in fullscreen */}
       <div
         className={[
@@ -399,15 +464,24 @@ export function VideoPlayer({
       </div>
 
       {/* Cursor: hide only when playing and controls are hidden in fullscreen */}
-      <style>{isFullscreen && isPlaying && !controlsVisible ? `* { cursor: none !important; }` : ''}</style>
+      <style>
+        {isFullscreen && isPlaying && !controlsVisible ? `* { cursor: none !important; }` : ''}
+      </style>
 
-      <SkipOverlay
-        currentTime={currentTime}
-        skipData={skipData?.[currentEpisode.filePath]}
-        onSkip={setSeek}
+      {!autoSkipIntroOutro && (
+        <SkipOverlay
+          currentTime={currentTime}
+          skipData={skipData?.[currentEpisode.filePath]}
+          onSkip={setSeek}
+        />
+      )}
+
+      <AutoplayCountdown
+        countdown={countdown}
+        episodeEnded={episodeEnded}
+        onCancel={cancelAutoplay}
+        onDismissEnded={dismissEnded}
       />
-
-      <AutoplayCountdown countdown={countdown} onCancel={cancelAutoplay} />
     </div>
   )
 }

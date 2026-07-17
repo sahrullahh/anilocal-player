@@ -79,3 +79,17 @@ export async function saveSkipData(data: SkipDb) {
   await db.write()
   return db.data
 }
+
+// ponyail: global lock, per-file locks if throughput matters
+export async function deleteSkipData(keys?: string[]) {
+  const db = await skipDbPromise
+  if (keys) {
+    for (const key of keys) {
+      delete db.data[key]
+    }
+  } else {
+    db.data = {}
+  }
+  await db.write()
+  return db.data
+}

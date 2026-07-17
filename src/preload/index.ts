@@ -72,6 +72,7 @@ const api = {
   selectFile: () => ipcRenderer.invoke('folder:selectFile'),
   selectJsonFile: () => ipcRenderer.invoke('folder:selectJsonFile'),
   readJsonFile: (filePath: string) => ipcRenderer.invoke('folder:readJsonFile', filePath),
+  saveJsonFile: (data: unknown) => ipcRenderer.invoke('folder:saveJsonFile', data),
   scanFolder: (path: string) => ipcRenderer.invoke('folder:scan', path),
   getLibrary: () => ipcRenderer.invoke('storage:getLibrary'),
   saveLibrary: (data: LibraryRecord[]) => ipcRenderer.invoke('storage:saveLibrary', data),
@@ -81,6 +82,8 @@ const api = {
   getSkipData: () => ipcRenderer.invoke('storage:getSkipData'),
   saveSkipData: (data: Record<string, SkipEntry>) =>
     ipcRenderer.invoke('storage:saveSkipData', data),
+  deleteSkipData: (keys?: string[]) => ipcRenderer.invoke('storage:deleteSkipData', keys),
+  openFolder: (folderPath: string) => ipcRenderer.invoke('folder:openFolder', folderPath),
   convertSrtToVtt: (path: string) => ipcRenderer.invoke('subtitle:convertSrtToVtt', path),
   toFileUrl: (path: string) => ipcRenderer.invoke('subtitle:toFileUrl', path),
   readSubtitleFile: (path: string) => ipcRenderer.invoke('subtitle:readFile', path),
@@ -89,9 +92,13 @@ const api = {
     ipcRenderer.invoke('subtitle:probeEmbeddedTracks', videoPath),
   probeVideoFps: (videoPath: string) =>
     ipcRenderer.invoke('subtitle:probeVideoFps', videoPath),
+  probeVideoDuration: (videoPath: string) =>
+    ipcRenderer.invoke('subtitle:probeVideoDuration', videoPath),
   extractEmbeddedTrack: (videoPath: string, trackIndex: number) =>
     ipcRenderer.invoke('subtitle:extractEmbeddedTrack', videoPath, trackIndex),
   extractFonts: (videoPath: string) => ipcRenderer.invoke('subtitle:extractFonts', videoPath),
+  generateThumbnail: (videoPath: string, timeSeconds?: number) =>
+    ipcRenderer.invoke('thumbnail:generate', videoPath, timeSeconds),
   onOpenFile: (callback: (filePath: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, filePath: string) => callback(filePath)
     ipcRenderer.on('player:openFileFromContextMenu', handler)

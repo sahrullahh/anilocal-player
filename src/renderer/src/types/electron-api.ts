@@ -48,6 +48,7 @@ export type ElectronAPI = {
   selectFile: () => Promise<string | null>
   selectJsonFile: () => Promise<string | null>
   readJsonFile: (filePath: string) => Promise<unknown>
+  saveJsonFile: (data: unknown) => Promise<boolean>
   scanFolder: (path: string) => Promise<{
     name: string
     path: string
@@ -59,14 +60,18 @@ export type ElectronAPI = {
   saveProgress: (data: Record<string, any>) => Promise<Record<string, any>>
   getSkipData: () => Promise<Record<string, any>>
   saveSkipData: (data: Record<string, any>) => Promise<Record<string, any>>
+  deleteSkipData: (keys?: string[]) => Promise<Record<string, any>>
+  openFolder: (folderPath: string) => Promise<void>
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
   readSubtitleFile: (path: string) => Promise<string>
   readFontFile: (path: string) => Promise<Buffer | { error: string }>
   probeEmbeddedTracks: (videoPath: string) => Promise<EmbeddedTrackDescriptor[] | { error: string }>
   probeVideoFps: (videoPath: string) => Promise<number | null>
+  probeVideoDuration: (videoPath: string) => Promise<number | null>
   extractEmbeddedTrack: (videoPath: string, trackIndex: number) => Promise<{ path: string } | { error: string }>
   extractFonts: (videoPath: string) => Promise<{ paths: string[] } | { error: string }>
+  generateThumbnail: (videoPath: string, timeSeconds?: number) => Promise<string | null>
   onOpenFile: (callback: (filePath: string) => void) => () => void
   discord: {
     connect: () => Promise<boolean>

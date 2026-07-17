@@ -71,6 +71,7 @@ export interface API {
   selectFile: () => Promise<string | null>
   selectJsonFile: () => Promise<string | null>
   readJsonFile: (filePath: string) => Promise<unknown>
+  saveJsonFile: (data: unknown) => Promise<boolean>
   scanFolder: (path: string) => Promise<{
     name: string
     path: string
@@ -82,6 +83,8 @@ export interface API {
   saveProgress: (data: Record<string, ProgressEntry>) => Promise<Record<string, ProgressEntry>>
   getSkipData: () => Promise<Record<string, SkipEntry>>
   saveSkipData: (data: Record<string, SkipEntry>) => Promise<Record<string, SkipEntry>>
+  deleteSkipData: (keys?: string[]) => Promise<Record<string, SkipEntry>>
+  openFolder: (folderPath: string) => Promise<void>
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
   readSubtitleFile: (path: string) => Promise<string>
@@ -90,11 +93,13 @@ export interface API {
     videoPath: string
   ) => Promise<EmbeddedTrackDescriptor[] | { error: string }>
   probeVideoFps: (videoPath: string) => Promise<number | null>
+  probeVideoDuration: (videoPath: string) => Promise<number | null>
   extractEmbeddedTrack: (
     videoPath: string,
     trackIndex: number
   ) => Promise<{ path: string } | { error: string }>
   extractFonts: (videoPath: string) => Promise<{ paths: string[] } | { error: string }>
+  generateThumbnail: (videoPath: string, timeSeconds?: number) => Promise<string | null>
   onOpenFile: (callback: (filePath: string) => void) => () => void
   discord: {
     connect: () => Promise<boolean>

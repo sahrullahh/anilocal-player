@@ -5,10 +5,17 @@
  * near-MPV-quality output including \pos, \move, \fad, \kf, \t transforms,
  * karaoke, and embedded-font support.
  *
- * Synchronization: uses `requestVideoFrameCallback` (rVFC) when available so
- * subtitle timing updates fire exactly once per decoded video frame — the same
- * sync point used by the video compositor — eliminating the jitter that occurs
- * when `requestAnimationFrame` fires between video frames.
+ * Synchronization: uses `requestVideoFrameCallback` (rVFC) when available as
+ * the **exclusive** timing source during active playback.  rVFC fires exactly
+ * once per decoded video frame — the same sync point used by the video
+ * compositor — eliminating the jitter that occurs when `requestAnimationFrame`
+ * fires between video frames.
+ *
+ * Event-based `setCurrentTime` calls are suppressed while rVFC is the active
+ * timing source to prevent dual-timing conflicts (the #1 cause of subtitle
+ * jitter with SubtitlesOctopus).  After seek / pause / buffering transitions
+ * the flag is cleared so the event can set the initial time, and rVFC resumes
+ * control on the next video frame.
  *
  * Falls back via `onFallback` prop when WebAssembly is unavailable.
  *
@@ -58,7 +65,6 @@ function getSubtitlesOctopus(): Promise<SubtitlesOctopusCtor> {
   if (loadPromise) return loadPromise
 
   loadPromise = import('@jellyfin/libass-wasm').then((mod) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ctor = (mod.default ?? mod) as SubtitlesOctopusCtor
     cachedClass = ctor
     return ctor
@@ -99,12 +105,27 @@ export function SubtitleOctopusRenderer({
   fonts,
   targetFps = 60,
   onFallback
-}: SubtitleOctopusRendererProps) {
+}: SubtitleOctopusRendererProps): React.ReactElement | null {
   const instanceRef = useRef<SubtitlesOctopusInstance | null>(null)
   const onFallbackRef = useRef(onFallback)
-  onFallbackRef.current = onFallback
   const visibleRef = useRef(visible)
-  visibleRef.current = visible
+
+  // Keep refs in sync with latest props — used by effects / callbacks
+  // where we intentionally want the latest value without re-triggering effects.
+  useEffect(() => {
+    onFallbackRef.current = onFallback
+  }, [onFallback])
+  useEffect(() => {
+    visibleRef.current = visible
+  }, [visible])
+
+  /**
+   * When `true`, rVFC is the active timing source and event-based
+   * `setCurrentTime` calls should be suppressed to prevent dual-timing jitter.
+   * Cleared on seek / pause / buffering so event handlers can set initial
+   * time; rVFC re-acquires the flag on its next callback.
+   */
+  const rvfcActiveRef = useRef(false)
 
   // Stable key for fonts array — only changes when actual URLs change
   const fontsKey = fonts && fonts.length > 0 ? fonts.join('|') : ''
@@ -115,19 +136,21 @@ export function SubtitleOctopusRenderer({
       console.error('[SubtitleOctopusRenderer] WebAssembly unavailable; falling back')
       onFallbackRef.current()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // ── requestVideoFrameCallback sync loop ───────────────────────────────────
-  // Fires exactly once per decoded video frame — perfect sync point for
-  // updating SubtitlesOctopus timing before the frame is composited.
+  // The **exclusive** timing source during active playback.  Suppresses
+  // event-based `setCurrentTime` via `rvfcActiveRef` to eliminate the
+  // dual-timing conflict that causes subtitle jitter.
   useEffect(() => {
     const video = videoRef.current
     if (!video || !supportsRVFC(video)) return
 
     let rvfcHandle: number | null = null
+    let cancelled = false
 
     const onVideoFrame: VideoFrameRequestCallback = (_now, metadata) => {
+      if (cancelled) return
       const inst = instanceRef.current
       if (inst && visibleRef.current) {
         try {
@@ -135,17 +158,24 @@ export function SubtitleOctopusRenderer({
           // This gives frame-accurate subtitle timing, eliminating drift
           // between video frames and subtitle canvas updates.
           inst.setCurrentTime(metadata.mediaTime)
+          // Mark rVFC as the active timing source so event-based
+          // setCurrentTime calls are suppressed.
+          rvfcActiveRef.current = true
         } catch {
           // Non-fatal — instance may be initializing
         }
       }
-      // Re-register for next frame
-      rvfcHandle = video.requestVideoFrameCallback(onVideoFrame)
+      // Re-register for next frame (only if not paused — rVFC stops
+      // firing during pause, so we don't need to guard)
+      if (!cancelled) {
+        rvfcHandle = video.requestVideoFrameCallback(onVideoFrame)
+      }
     }
 
     rvfcHandle = video.requestVideoFrameCallback(onVideoFrame)
 
     return () => {
+      cancelled = true
       if (rvfcHandle !== null) {
         video.cancelVideoFrameCallback(rvfcHandle)
       }
@@ -163,24 +193,47 @@ export function SubtitleOctopusRenderer({
 
     // Dispose previous instance before creating new one
     if (instanceRef.current) {
-      try { instanceRef.current.dispose() } catch { /* ignore */ }
+      try {
+        instanceRef.current.dispose()
+      } catch {
+        /* ignore */
+      }
       instanceRef.current = null
     }
 
-    const ro = new ResizeObserver(() => {
+    // Invalidate rVFC time authority when instance changes — the new
+    // instance needs an initial time sync from event handlers.
+    rvfcActiveRef.current = false
+
+    // Force resize when video element dimensions change.
+    // Uses ResizeObserver for accurate size tracking; only fires when
+    // dimensions actually change, avoiding unnecessary re-renders.
+    const forceResize = function forceResize(): void {
       if (instanceRef.current) {
-        try { instanceRef.current.resize() } catch { /* ignore */ }
+        try {
+          instanceRef.current.resize()
+        } catch {
+          /* ignore */
+        }
       }
-    })
+    }
+
+    const ro = new ResizeObserver(forceResize)
     ro.observe(video)
 
     const hasRVFC = supportsRVFC(video)
 
     getSubtitlesOctopus()
-      .then((Ctor) => {
+      .then((Ctor: SubtitlesOctopusCtor) => {
         if (cancelled) return
 
         try {
+          // Use rVFC as the sole timing source when available, so we
+          // can set renderAhead=1 (render just the next frame) instead
+          // of a larger pre-render window.  This reduces CPU load and
+          // eliminates stale-frame display during rapid time changes.
+          const renderAhead = hasRVFC ? 1 : 4
+
           const instance = new Ctor({
             video,
             subContent: assContent,
@@ -188,25 +241,30 @@ export function SubtitleOctopusRenderer({
             legacyWorkerUrl: workerUrl('subtitles-octopus-worker-legacy.js'),
             onError: (err) => console.error('[SubtitleOctopusRenderer] worker error:', err),
             targetFps,
-            // renderAhead: pre-render frames ahead to eliminate pop-in jitter.
-            // With rVFC we get perfect frame timing; renderAhead ensures the
-            // worker has rendered the frame before we need to display it.
-            renderAhead: 4,
+            renderAhead,
             ...(fonts && fonts.length > 0 ? { fonts } : {})
           })
 
           if (cancelled) {
-            try { instance.dispose() } catch { /* ignore */ }
+            try {
+              instance.dispose()
+            } catch {
+              /* ignore */
+            }
             return
           }
 
           instanceRef.current = instance
           console.log(
-            `[SubtitleOctopusRenderer] created instance — targetFps=${targetFps}, rVFC=${hasRVFC}`
+            `[SubtitleOctopusRenderer] created instance — targetFps=${targetFps}, rVFC=${hasRVFC}, renderAhead=${renderAhead}`
           )
 
           if (!visibleRef.current) {
-            try { instance.setIsPaused(true) } catch { /* non-fatal */ }
+            try {
+              instance.setIsPaused(true)
+            } catch {
+              /* non-fatal */
+            }
           }
         } catch (err) {
           console.error('[SubtitleOctopusRenderer] failed to construct instance:', err)
@@ -225,54 +283,103 @@ export function SubtitleOctopusRenderer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assContent, videoRef, fontsKey, targetFps])
 
-  // ── Sync paused/play/seek state with SubtitlesOctopus — reduces jitter/CPU
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
+  // ── Sync paused/play/seek state with SubtitlesOctopus ────────────────────
+  // Event handlers only set initial time on transitions (seek, pause, play);
+  // during continuous playback rVFC is the sole timing authority to prevent
+  // dual-timing jitter.
+  useEffect(
+    function syncPlaybackState(): (() => void) | undefined {
+      const video = videoRef.current
+      if (!video) return
 
-    const applyPaused = () => {
-      const inst = instanceRef.current
-      if (!inst) return
-      try {
-        // Pause worker when overlay hidden or when video is paused. Provide currentTime
-        // so the worker can render the correct frame immediately after unpausing.
-        inst.setIsPaused(!visibleRef.current || video.paused, video.currentTime)
-      } catch (err) {
-        console.warn('[SubtitleOctopusRenderer] setIsPaused threw:', err)
+      const applyPaused = function applyPaused(): void {
+        const inst = instanceRef.current
+        if (!inst) return
+        try {
+          const paused = !visibleRef.current || video.paused
+          inst.setIsPaused(paused, video.currentTime)
+          // On pause: clear rVFC authority so event-based time can take over.
+          // On play: also clear it so this initial time sync can run; rVFC
+          // will re-acquire on its next callback with more accurate mediaTime.
+          rvfcActiveRef.current = false
+        } catch (err) {
+          console.warn('[SubtitleOctopusRenderer] setIsPaused threw:', err)
+        }
       }
-    }
 
-    const onPlay = () => applyPaused()
-    const onPause = () => applyPaused()
-    const onSeeked = () => {
-      const inst = instanceRef.current
-      if (!inst) return
-      try {
-        inst.setCurrentTime(video.currentTime)
-      } catch (err) {
-        console.warn('[SubtitleOctopusRenderer] setCurrentTime threw:', err)
+      const onPlay = function onPlay(): void {
+        applyPaused()
       }
-    }
+      const onPause = function onPause(): void {
+        applyPaused()
+      }
 
-    // Initial sync
-    applyPaused()
+      // Seek: clear rVFC authority so event can set initial time; rVFC
+      // resumes control on the next video frame with mediaTime.
+      const onSeeked = function onSeeked(): void {
+        rvfcActiveRef.current = false
+        const inst = instanceRef.current
+        if (!inst) return
+        try {
+          inst.setCurrentTime(video.currentTime)
+        } catch (err) {
+          console.warn('[SubtitleOctopusRenderer] setCurrentTime threw:', err)
+        }
+      }
 
-    video.addEventListener('play', onPlay)
-    video.addEventListener('pause', onPause)
-    video.addEventListener('seeked', onSeeked)
+      // Buffering: pause the worker to save CPU; rVFC stops firing during
+      // buffering so event-based time is the only option.
+      const onWaiting = function onWaiting(): void {
+        rvfcActiveRef.current = false
+        const inst = instanceRef.current
+        if (!inst) return
+        try {
+          inst.setIsPaused(true, video.currentTime)
+        } catch {
+          /* ignore */
+        }
+      }
 
-    return () => {
-      video.removeEventListener('play', onPlay)
-      video.removeEventListener('pause', onPause)
-      video.removeEventListener('seeked', onSeeked)
-    }
-  }, [videoRef, visible])
+      const onCanPlay = function onCanPlay(): void {
+        rvfcActiveRef.current = false
+        const inst = instanceRef.current
+        if (!inst || video.paused) return
+        try {
+          inst.setIsPaused(false, video.currentTime)
+        } catch {
+          /* ignore */
+        }
+      }
+
+      // Initial sync
+      applyPaused()
+
+      video.addEventListener('play', onPlay)
+      video.addEventListener('pause', onPause)
+      video.addEventListener('seeked', onSeeked)
+      video.addEventListener('waiting', onWaiting)
+      video.addEventListener('canplay', onCanPlay)
+
+      return () => {
+        video.removeEventListener('play', onPlay)
+        video.removeEventListener('pause', onPause)
+        video.removeEventListener('seeked', onSeeked)
+        video.removeEventListener('waiting', onWaiting)
+        video.removeEventListener('canplay', onCanPlay)
+      }
+    },
+    [videoRef, visible]
+  )
 
   // ── Unmount cleanup ───────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
+  useEffect(function cleanupOnUnmount(): () => void {
+    return function disposeInstance(): void {
       if (instanceRef.current) {
-        try { instanceRef.current.dispose() } catch { /* ignore */ }
+        try {
+          instanceRef.current.dispose()
+        } catch {
+          /* ignore */
+        }
         instanceRef.current = null
       }
     }

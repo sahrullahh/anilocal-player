@@ -1,10 +1,105 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLibraryStore } from '../../store/library.store'
 import { usePlayerStore } from '../../store/player.store'
 import { useLibrarySettingsStore } from '../../store/library-settings.store'
 import { Button } from '../common/Button'
 import { EmptyState } from '../common/EmptyState'
 import { SettingsModal } from '../settings/SettingsModal'
+import { buildEpisodeTree, countEpisodes } from '../../utils/episodeTree'
+import type { EpisodeTreeNode } from '../../utils/episodeTree'
+import type { Anime } from '../../types/anime'
+
+/**
+ * Recursive rows for sub-folders nested inside a library (anime) entry.
+ *
+ * IMPORTANT: this panel only ever shows folder names — never episode
+ * filenames. Episodes are shown exclusively in the separate Episode List
+ * panel, and only the videos located *directly* inside the folder that was
+ * last clicked (non-recursive) — never videos from nested sub-folders.
+ */
+function AnimeSubFolders({
+  node,
+  keyPrefix,
+  path,
+  depth,
+  expanded,
+  toggleExpanded,
+  selectedKey,
+  onSelectFolder
+}: {
+  node: EpisodeTreeNode
+  keyPrefix: string
+  path: string[]
+  depth: number
+  expanded: Set<string>
+  toggleExpanded: (key: string) => void
+  selectedKey: string | null
+  onSelectFolder: (node: EpisodeTreeNode, key: string, path: string[], name: string) => void
+}) {
+  return (
+    <>
+      {Array.from(node.folders.entries()).map(([name, child]) => {
+        const key = `${keyPrefix}/${name}`
+        const childPath = [...path, name]
+        const isExpanded = expanded.has(key)
+        const hasChildren = child.folders.size > 0
+        const isActive = selectedKey === key
+
+        return (
+          <div key={key}>
+            <div
+              className={`group flex items-center gap-1.5 rounded-lg py-1.5 pr-2 cursor-pointer transition-colors ${
+                isActive ? 'bg-blue-600 text-white' : 'hover:bg-dark-800 text-gray-300'
+              }`}
+              style={{ paddingLeft: 12 + depth * 16 }}
+              onClick={() => {
+                // Clicking a folder always loads only its *direct* videos into
+                // the Episode List (non-recursive), and also toggles the
+                // visibility of its own sub-folders here so the user can drill
+                // further down one level at a time.
+                onSelectFolder(child, key, childPath, name)
+                if (hasChildren) toggleExpanded(key)
+              }}
+            >
+              {hasChildren ? (
+                <svg
+                  className={`w-3 h-3 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+              ) : (
+                <span className="w-3 flex-shrink-0" />
+              )}
+              <svg className="w-4 h-4 flex-shrink-0 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M2 6a2 2 0 012-2h6l2 2h8a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+              </svg>
+              <span className="text-sm truncate flex-1">{name}</span>
+              <span className={`text-xs flex-shrink-0 ${isActive ? 'text-blue-100' : 'text-gray-600'}`}>
+                {countEpisodes(child)}
+              </span>
+            </div>
+
+            {isExpanded && (
+              <AnimeSubFolders
+                node={child}
+                keyPrefix={key}
+                path={childPath}
+                depth={depth + 1}
+                expanded={expanded}
+                toggleExpanded={toggleExpanded}
+                selectedKey={selectedKey}
+                onSelectFolder={onSelectFolder}
+              />
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
+}
 
 export function LibrarySidebar({
   onClose,
@@ -16,6 +111,14 @@ export function LibrarySidebar({
   onRemoveAnime?: (remainingCount: number) => void
 }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dropTarget, setDropTarget] = useState<number | null>(null)
+  // Which anime's folder tree is currently expanded in the list (only one at a time)
+  const [openAnimeId, setOpenAnimeId] = useState<string | null>(null)
+  // Expanded sub-folder keys, scoped by "animeId/sub/path" so switching anime resets naturally
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  // Currently selected folder key (for highlight). null = anime root folder itself.
+  const [selectedFolderKey, setSelectedFolderKey] = useState<string | null>(null)
   const {
     libraries,
     currentAnime,
@@ -23,7 +126,8 @@ export function LibrarySidebar({
     loadLibrary,
     addFolder,
     setCurrentAnime,
-    removeLibrary
+    removeLibrary,
+    reorderLibrary
   } = useLibraryStore()
   const { setPlaylist, resetPlayer } = usePlayerStore()
   const { selectAnime, resetSettings } = useLibrarySettingsStore()
@@ -32,14 +136,72 @@ export function LibrarySidebar({
     loadLibrary()
   }, [loadLibrary])
 
-  const handleSelectAnime = (anime: typeof currentAnime) => {
-    if (!anime) return
-    // Reset player so video stops
+  // Per-anime folder tree (built lazily/memoized per library list identity)
+  const treesByAnimeId = useMemo(() => {
+    const map = new Map<string, EpisodeTreeNode>()
+    for (const anime of libraries) {
+      map.set(anime.id, buildEpisodeTree(anime.episodes))
+    }
+    return map
+  }, [libraries])
+
+  const toggleExpandedFolder = (key: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  /**
+   * Opens the given anime's ROOT folder. Loads only the videos located
+   * directly in that root folder (non-recursive) — e.g. `Trailer.mp4` and
+   * `PV.mp4` sitting next to `Season 1/` and `Season 2/`, but not the
+   * episodes inside those sub-folders. If the folder has sub-folders, this
+   * also expands the folder tree so the user can drill into them.
+   */
+  const handleSelectAnimeRoot = (anime: Anime) => {
+    const tree = treesByAnimeId.get(anime.id)
+    setSelectedFolderKey(null)
+
+    const rootEpisodes = tree ? tree.episodes : anime.episodes
+    const scopedAnime: Anime = { ...anime, episodes: rootEpisodes }
+
     resetPlayer()
-    setCurrentAnime(anime)
-    setPlaylist(anime.episodes)
-    // Switch center area to library-settings mode
-    selectAnime(anime)
+    setCurrentAnime(scopedAnime)
+    setPlaylist(rootEpisodes)
+    selectAnime(scopedAnime)
+    onSelectAnime?.()
+
+    const hasSubFolders = (tree?.folders.size ?? 0) > 0
+    if (hasSubFolders) {
+      setOpenAnimeId((prev) => (prev === anime.id ? null : anime.id))
+    }
+  }
+
+  /**
+   * Opens a sub-folder. Loads only the videos located directly inside that
+   * sub-folder (non-recursive) — deeper nested sub-folders are not included
+   * until the user drills into them individually.
+   */
+  const handleSelectSubFolder = (
+    anime: Anime,
+    node: EpisodeTreeNode,
+    key: string,
+    folderPath: string[]
+  ) => {
+    setSelectedFolderKey(key)
+    const directEpisodes = node.episodes
+    const scopedAnime: Anime = {
+      ...anime,
+      name: `${anime.name} / ${folderPath.join(' / ')}`,
+      episodes: directEpisodes
+    }
+    resetPlayer()
+    setCurrentAnime(scopedAnime)
+    setPlaylist(directEpisodes)
+    selectAnime(scopedAnime)
     onSelectAnime?.()
   }
 
@@ -54,12 +216,42 @@ export function LibrarySidebar({
     onRemoveAnime?.(remaining.length)
   }
 
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDragIndex(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(index))
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDropTarget(index)
+  }
+
+  const handleDragLeave = () => {
+    setDropTarget(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, toIndex: number) => {
+    e.preventDefault()
+    if (dragIndex !== null && dragIndex !== toIndex) {
+      reorderLibrary(dragIndex, toIndex)
+    }
+    setDragIndex(null)
+    setDropTarget(null)
+  }
+
+  const handleDragEnd = () => {
+    setDragIndex(null)
+    setDropTarget(null)
+  }
+
   return (
     <>
       <div className="w-64 bg-dark-900 border-r border-dark-800 flex flex-col h-full">
         <div className="p-4 border-b border-dark-800">
           <div className="flex items-center justify-between mb-1">
-            <h1 className="text-sm font-semibold text-white">Anilocal Player</h1>
+            <h1 className="text-sm font-semibold text-white">Recent Media</h1>
             {onClose && (
               <button
                 type="button"
@@ -68,7 +260,12 @@ export function LibrarySidebar({
                 title="Close library"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             )}
@@ -127,49 +324,123 @@ export function LibrarySidebar({
             />
           ) : (
             <div className="p-2 space-y-1">
-              {libraries.map((anime) => (
-                <div
-                  key={anime.id}
-                  className={`group relative rounded-lg p-3 cursor-pointer transition-colors ${
-                    currentAnime?.id === anime.id
-                      ? 'bg-blue-600 text-white'
-                      : 'hover:bg-dark-800 text-gray-300'
-                  }`}
-                  onClick={() => handleSelectAnime(anime)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">{anime.name}</h3>
-                      <p
-                        className={`text-sm mt-1 ${
-                          currentAnime?.id === anime.id ? 'text-blue-100' : 'text-gray-500'
-                        }`}
-                      >
-                        {anime.episodes.length} episodes
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => handleRemoveAnime(e, anime.id)}
-                      className="opacity-0 group-hover:opacity-100 ml-2 p-1 hover:bg-red-600 rounded transition-all"
-                      title="Remove"
+              {libraries.map((anime, index) => {
+                const tree = treesByAnimeId.get(anime.id)
+                const hasSubFolders = (tree?.folders.size ?? 0) > 0
+                const isTreeOpen = openAnimeId === anime.id
+                const directCount = tree ? tree.episodes.length : anime.episodes.length
+
+                return (
+                  <div key={anime.id}>
+                    <div
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, index)}
+                      onDragEnd={handleDragEnd}
+                      className={`group relative rounded-lg p-3 cursor-pointer transition-colors ${
+                        dragIndex === index ? 'opacity-50' : ''
+                      } ${
+                        dropTarget === index && dragIndex !== index
+                          ? 'border-t-2 border-blue-400'
+                          : ''
+                      } ${
+                        currentAnime?.id === anime.id && !selectedFolderKey
+                          ? 'bg-blue-600 text-white'
+                          : 'hover:bg-dark-800 text-gray-300'
+                      }`}
+                      onClick={() => handleSelectAnimeRoot(anime)}
                     >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                          {/* Expand chevron — only shown when the anime folder has nested sub-folders.
+                              Clicking anywhere on the row (including this icon) both opens this
+                              folder's own direct videos and toggles the sub-folder list below. */}
+                          {hasSubFolders ? (
+                            <svg
+                              className={`w-3.5 h-3.5 mt-1.5 flex-shrink-0 transition-transform ${
+                                isTreeOpen ? 'rotate-90' : ''
+                              }`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <title>{isTreeOpen ? 'Collapse folders' : 'Expand folders'}</title>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2.5}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
+                          ) : (
+                            <span className="w-4 flex-shrink-0" />
+                          )}
+                          <svg
+                            className="w-8 h-8 mt-0.5 flex-shrink-0"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M2 6a2 2 0 012-2h6l2 2h8a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                          </svg>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium truncate">{anime.name}</h3>
+                            <p
+                              className={`text-sm mt-1 ${
+                                currentAnime?.id === anime.id ? 'text-blue-100' : 'text-gray-500'
+                              }`}
+                            >
+                              {hasSubFolders
+                                ? `${tree!.folders.size} folder${tree!.folders.size > 1 ? 's' : ''}`
+                                : `${directCount} episodes`}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => handleRemoveAnime(e, anime.id)}
+                          className="opacity-0 group-hover:opacity-100 ml-2 p-1 hover:bg-red-600 rounded transition-all"
+                          title="Remove"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Nested sub-folders (e.g. Anime/Season 1/, Anime/Season 2/) —
+                        folder names only; their videos load into the Episode List
+                        only once clicked, never eagerly. */}
+                    {isTreeOpen && tree && (
+                      <div className="mt-0.5 mb-1">
+                        <AnimeSubFolders
+                          node={tree}
+                          keyPrefix={anime.id}
+                          path={[]}
+                          depth={0}
+                          expanded={expandedFolders}
+                          toggleExpanded={toggleExpandedFolder}
+                          selectedKey={selectedFolderKey}
+                          onSelectFolder={(node, key, path) =>
+                            handleSelectSubFolder(anime, node, key, path)
+                          }
                         />
-                      </svg>
-                    </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

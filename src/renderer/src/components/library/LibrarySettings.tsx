@@ -1,9 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLibrarySettingsStore } from '../../store/library-settings.store'
 import { usePlayerStore } from '../../store/player.store'
+import { useLibraryStore } from '../../store/library.store'
 import { Button } from '../common/Button'
-import { formatTime, parseTime } from '../../utils/time'
-import type { SkipTimestamps } from '../../types/anime'
+import type { SkipTimestamps, Episode } from '../../types/anime'
+
+// Module-level cache so revisiting the same anime doesn't re-probe every
+// episode's duration via ffprobe again.
+const episodeDurationCache = new Map<string, number>()
+
+/** Formats a duration in seconds as a human-readable Indonesian string, e.g. "1 hari 4 jam 12 menit". */
+function formatWatchTime(totalSeconds: number): string {
+  if (totalSeconds <= 0) return '—'
+  const totalMinutes = Math.round(totalSeconds / 60)
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+
+  const parts: string[] = []
+  if (days > 0) parts.push(`${days} days`)
+  if (hours > 0) parts.push(`${hours} hours`)
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes} minutes`)
+  return parts.join(' ')
+}
 
 export function LibrarySettings() {
   const {
@@ -18,17 +37,67 @@ export function LibrarySettings() {
     resolveSkipForEpisode
   } = useLibrarySettingsStore()
 
-  const { skipData, updateSkipData, playEpisode } = usePlayerStore()
+  const {
+    skipData,
+    progressData,
+    updateSkipData,
+    clearSkipForEpisode,
+    clearAllSkipData,
+    playEpisode
+  } = usePlayerStore()
+  const { libraries } = useLibraryStore()
+
+  // `selectedAnime` may be scoped to whichever folder/sub-folder the user last
+  // opened in the sidebar (Episode List is intentionally non-recursive so it
+  // never loads an entire season's videos at once). Stats and total duration
+  // below, however, should always reflect the WHOLE anime/season — so look up
+  // the un-scoped entry from the library store and use all of its episodes.
+  const allEpisodesForStats: Episode[] = useMemo(() => {
+    if (!selectedAnime) return []
+    const fullAnime = libraries.find((lib) => lib.id === selectedAnime.id)
+    return fullAnime?.episodes ?? selectedAnime.episodes
+  }, [libraries, selectedAnime])
 
   const [importError, setImportError] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState<string | null>(null)
   const [applyStatus, setApplyStatus] = useState<string | null>(null)
+  const [totalDurationSeconds, setTotalDurationSeconds] = useState<number | null>(null)
+  const [isProbingDuration, setIsProbingDuration] = useState(false)
 
-  // Manual skip edit state (for selected episode)
-  const [manualSkip, setManualSkip] = useState<SkipTimestamps>(() => {
-    if (selectedEpisode) return skipData?.[selectedEpisode.filePath] ?? {}
-    return {}
-  })
+  useEffect(() => {
+    if (!selectedAnime) {
+      setTotalDurationSeconds(null)
+      return
+    }
+    let cancelled = false
+    setIsProbingDuration(true)
+
+    const probeAll = async () => {
+      let sum = 0
+      for (const episode of allEpisodesForStats) {
+        if (cancelled) return
+        const cached = episodeDurationCache.get(episode.filePath)
+        if (cached != null) {
+          sum += cached
+          continue
+        }
+        const seconds = await window.api.probeVideoDuration(episode.filePath)
+        if (seconds != null) {
+          episodeDurationCache.set(episode.filePath, seconds)
+          sum += seconds
+        }
+      }
+      if (!cancelled) {
+        setTotalDurationSeconds(sum)
+        setIsProbingDuration(false)
+      }
+    }
+
+    void probeAll()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedAnime, allEpisodesForStats])
 
   if (!selectedAnime) return null
 
@@ -36,19 +105,35 @@ export function LibrarySettings() {
   const packs = skipPacks[animeId] ?? []
   const activePackId = activeSkipPackId[animeId] ?? null
 
-  // Stats
-  const totalEpisodes = selectedAnime.episodes.length
-  const episodesWithSubtitle = selectedAnime.episodes.filter(
+  // Stats (always computed from the full, un-scoped episode list for this anime)
+  const totalEpisodes = allEpisodesForStats.length
+  const episodesWithSubtitle = allEpisodesForStats.filter(
     (ep) => ep.subtitles && ep.subtitles.length > 0
   ).length
-  const episodesWithIntro = selectedAnime.episodes.filter((ep) => {
+  const episodesWithIntro = allEpisodesForStats.filter((ep) => {
     const d = skipData?.[ep.filePath]
     return d?.introEnd != null
   }).length
-  const episodesWithOutro = selectedAnime.episodes.filter((ep) => {
+  const episodesWithOutro = allEpisodesForStats.filter((ep) => {
     const d = skipData?.[ep.filePath]
     return d?.outroEnd != null
   }).length
+
+  // Watched time: for fully-watched episodes, count their full probed duration
+  // (not just currentTime, since a "watched" episode may have currentTime near
+  // the end rather than exactly at duration). For in-progress episodes, count
+  // their actual currentTime.
+  const watchedSeconds = allEpisodesForStats.reduce((sum, ep) => {
+    const progress = progressData?.[ep.filePath]
+    if (!progress) return sum
+    if (progress.watched) {
+      const fullDuration = episodeDurationCache.get(ep.filePath) ?? progress.duration
+      return sum + fullDuration
+    }
+    return sum + progress.currentTime
+  }, 0)
+  const remainingSeconds =
+    totalDurationSeconds != null ? Math.max(totalDurationSeconds - watchedSeconds, 0) : null
 
   // ── Import Skip Pack ──────────────────────────────────────────────
   const handleImportSkipPack = async () => {
@@ -69,6 +154,45 @@ export function LibrarySettings() {
         setImportError(result.error ?? 'Unknown error')
       } else {
         setImportSuccess(`Pack imported successfully.`)
+      }
+    } catch (err) {
+      setImportError(String(err))
+    }
+  }
+
+  // ── Export Skip Data ──────────────────────────────────────────────
+  const handleExportSkipData = async () => {
+    const entries = allEpisodesForStats
+      .map((ep, i) => {
+        const d = skipData?.[ep.filePath]
+        if (!d || (d.introEnd == null && d.outroEnd == null)) return null
+        return {
+          episodeNumber: i + 1,
+          episodeTitle: ep.fileName,
+          introStart: d.introStart,
+          introEnd: d.introEnd,
+          outroStart: d.outroStart,
+          outroEnd: d.outroEnd
+        }
+      })
+      .filter(Boolean)
+
+    if (entries.length === 0) {
+      setImportError('No skip data to export.')
+      return
+    }
+
+    const json = {
+      name: selectedAnime.name,
+      animeTitle: selectedAnime.name,
+      exportedAt: new Date().toISOString(),
+      entries
+    }
+
+    try {
+      const saved = await window.api.saveJsonFile(json)
+      if (saved) {
+        setImportSuccess('Skip data exported successfully.')
       }
     } catch (err) {
       setImportError(String(err))
@@ -105,7 +229,7 @@ export function LibrarySettings() {
     let count = 0
     const prevEpisode = usePlayerStore.getState().currentEpisode
 
-    for (const episode of selectedAnime.episodes) {
+    for (const episode of allEpisodesForStats) {
       const entry = resolveSkipForEpisode(animeId, episode)
       if (!entry) continue
       const data: SkipTimestamps = {
@@ -123,16 +247,6 @@ export function LibrarySettings() {
     setApplyStatus(`Applied to ${count} episodes.`)
   }
 
-  // ── Save manual skip for selected episode ────────────────────────
-  const handleSaveManualSkip = async () => {
-    if (!selectedEpisode) return
-    const prevEpisode = usePlayerStore.getState().currentEpisode
-    usePlayerStore.setState({ currentEpisode: selectedEpisode })
-    await updateSkipData(manualSkip)
-    usePlayerStore.setState({ currentEpisode: prevEpisode })
-    setApplyStatus(`Skip data saved for: ${selectedEpisode.fileName}`)
-  }
-
   // ── Play selected episode ─────────────────────────────────────────
   const handlePlay = () => {
     if (!selectedEpisode) return
@@ -140,44 +254,57 @@ export function LibrarySettings() {
     setCenterMode('player')
   }
 
-  // ── Input field helper ───────────────────────────────────────────
-  const TimeInput = ({
-    label,
-    value,
-    onChange
-  }: {
-    label: string
-    value: number | undefined
-    onChange: (v: number | undefined) => void
-  }) => (
-    <div>
-      <label className="block text-xs text-gray-500 mb-1">{label}</label>
-      <input
-        type="text"
-        placeholder="0:00"
-        value={value != null ? formatTime(value) : ''}
-        onChange={(e) => onChange(e.target.value ? parseTime(e.target.value) : undefined)}
-        className="w-full px-2 py-1.5 bg-dark-800 border border-dark-700 rounded text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
-      />
-    </div>
-  )
-
   return (
-    <div className="flex-1 bg-dark-950 overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
-
+    <div className="flex-1 bg-dark-950 overflow-y-auto relative">
+      <div className="relative max-w-2xl mx-auto px-6 py-6 space-y-6">
         {/* Header */}
         <div>
+          <p className="text-xs text-neutral-500">Title</p>
           <h1 className="text-2xl font-bold text-white truncate">{selectedAnime.name}</h1>
-          <p className="text-sm text-gray-500 mt-1 truncate">{selectedAnime.path}</p>
+
+          {/* Location */}
+          <div className="mt-8 px-3 py-2 bg-dark-800 rounded-lg flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-neutral-500">Location</p>
+              <p className="text-sm text-white truncate">{selectedAnime.path}</p>
+            </div>
+            <button
+              onClick={() => window.api.openFolder(selectedAnime.path)}
+              className="ml-3 shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-dark-600 text-neutral-300 hover:bg-dark-700 hover:text-white transition-colors"
+              title="Open folder location"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M2 6a2 2 0 012-2h5l2 2h9a2 2 0 012 2v1M2 6v12a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2H2"
+                />
+              </svg>
+              Open Folder Location
+            </button>
+          </div>
+
           {selectedEpisode && (
             <div className="mt-2 px-3 py-2 bg-dark-800 rounded-lg flex items-center justify-between">
               <div className="min-w-0">
-                <p className="text-xs text-gray-500">Selected Episode</p>
+                <p className="text-xs text-neutral-500">Selected Episode</p>
                 <p className="text-sm text-white truncate">{selectedEpisode.fileName}</p>
               </div>
-              <Button variant="primary" size="sm" onClick={handlePlay} className="ml-4 shrink-0">
-                ▶ Play
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handlePlay}
+                className="ml-4 shrink-0 gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Play
               </Button>
             </div>
           )}
@@ -191,15 +318,72 @@ export function LibrarySettings() {
             <Stat label="With Skip Intro" value={episodesWithIntro} total={totalEpisodes} />
             <Stat label="With Skip Outro" value={episodesWithOutro} total={totalEpisodes} />
           </div>
+          <div className="grid grid-cols-1 gap-2">
+            <div className="bg-dark-800 rounded-lg px-3 py-2">
+              <p className="text-xs text-neutral-500">Total Duration</p>
+              <p className="text-lg font-semibold text-white">
+                {isProbingDuration && totalDurationSeconds == null
+                  ? 'Calculating duration...'
+                  : formatWatchTime(totalDurationSeconds ?? 0)}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-dark-800 rounded-lg px-3 py-2">
+                <p className="text-xs text-neutral-500">Watched Time</p>
+                <p className="text-sm font-semibold text-blue-400">
+                  {formatWatchTime(watchedSeconds)}
+                </p>
+              </div>
+              <div className="bg-dark-800 rounded-lg px-3 py-2">
+                <p className="text-xs text-neutral-500">Remaining Watch Time</p>
+                <p className="text-sm font-semibold text-blue-400">
+                  {remainingSeconds != null
+                    ? isProbingDuration
+                      ? '...'
+                      : formatWatchTime(remainingSeconds)
+                    : '—'}
+                </p>
+              </div>
+            </div>
+          </div>
         </Section>
 
         {/* Skip Pack */}
         <Section title="Skip Intro / Outro">
-          {/* Import */}
+          {/* Import / Export */}
           <div className="space-y-2">
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={handleImportSkipPack} className="border border-dark-600">
-                Import Skip Pack (.json)
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleImportSkipPack}
+                className="border border-dark-600 gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+                Import
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="border border-dark-600 gap-1.5"
+                onClick={handleExportSkipData}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"
+                  />
+                </svg>
+                Export
               </Button>
             </div>
             {importError && <p className="text-xs text-red-400">{importError}</p>}
@@ -209,31 +393,41 @@ export function LibrarySettings() {
           {/* Pack list */}
           {packs.length > 0 && (
             <div className="mt-3 space-y-1">
-              <p className="text-xs text-gray-500 mb-2">Imported Packs</p>
+              <p className="text-xs text-neutral-500 mb-2">Imported Packs</p>
               {packs.map((pack) => (
                 <div
                   key={pack.id}
                   className={`flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
                     activePackId === pack.id
-                      ? 'border-blue-600 bg-blue-600/10 text-blue-300'
-                      : 'border-dark-700 bg-dark-800 text-gray-300 hover:border-dark-600'
+                      ? 'border-purple-600 bg-purple-600 text-white'
+                      : 'border-purple-600 bg-purple-600 text-neutral-300 hover:border-dark-600'
                   }`}
                   onClick={() => setActiveSkipPack(animeId, pack.id)}
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{pack.name}</p>
-                    <p className="text-xs text-gray-500">{pack.entries.length} entries</p>
+                    <p className="text-sm font-medium text-neutral-200 truncate">{pack.name}</p>
+                    <p className="text-xs text-neutral-200">{pack.entries.length} entries</p>
                   </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       removeSkipPack(animeId, pack.id)
                     }}
-                    className="ml-2 p-1 hover:bg-red-600/20 hover:text-red-400 rounded transition-colors text-gray-600"
+                    className="ml-2 p-1 text-white rounded transition-colors "
                     title="Remove pack"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -244,63 +438,93 @@ export function LibrarySettings() {
           {/* Apply pack actions */}
           {activePackId && (
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button size="sm" variant="ghost" className="border border-dark-600" onClick={handleApplyToCurrentEpisode}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="border border-dark-600 gap-1.5"
+                onClick={handleApplyToCurrentEpisode}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                  />
+                </svg>
                 Apply to Current Episode
               </Button>
-              <Button size="sm" variant="ghost" className="border border-dark-600" onClick={handleApplyToAllEpisodes}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="border border-dark-600 gap-1.5"
+                onClick={handleApplyToAllEpisodes}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
                 Apply to All Episodes
               </Button>
             </div>
           )}
 
-          {applyStatus && (
-            <p className="text-xs text-green-400 mt-1">{applyStatus}</p>
-          )}
+          {applyStatus && <p className="text-xs text-green-400 mt-1">{applyStatus}</p>}
 
-          {/* Manual edit */}
+          {/* Clear skip data */}
           <div className="mt-4 pt-4 border-t border-dark-800">
-            <p className="text-xs text-gray-500 mb-3">
-              Manual Edit{selectedEpisode ? ` — ${selectedEpisode.fileName}` : ' (select an episode first)'}
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <TimeInput
-                label="Intro Start"
-                value={manualSkip.introStart}
-                onChange={(v) => setManualSkip((s) => ({ ...s, introStart: v }))}
-              />
-              <TimeInput
-                label="Intro End"
-                value={manualSkip.introEnd}
-                onChange={(v) => setManualSkip((s) => ({ ...s, introEnd: v }))}
-              />
-              <TimeInput
-                label="Outro Start"
-                value={manualSkip.outroStart}
-                onChange={(v) => setManualSkip((s) => ({ ...s, outroStart: v }))}
-              />
-              <TimeInput
-                label="Outro End"
-                value={manualSkip.outroEnd}
-                onChange={(v) => setManualSkip((s) => ({ ...s, outroEnd: v }))}
-              />
-            </div>
-            <div className="flex gap-2 mt-3">
+            <p className="text-xs text-neutral-500 mb-3">Clear Skip Data</p>
+            <div className="flex flex-wrap gap-2">
+              {selectedEpisode && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="border border-dark-600 text-white  gap-1.5"
+                  onClick={async () => {
+                    if (!selectedEpisode) return
+                    await clearSkipForEpisode(selectedEpisode.filePath)
+                    setApplyStatus(`Cleared skip data for: ${selectedEpisode.fileName}`)
+                  }}
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  Clear for Selected Episode
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
-                className="border border-dark-600"
-                onClick={handleSaveManualSkip}
-                disabled={!selectedEpisode}
+                className="border border-dark-600 text-white bg-red-800 gap-1.5"
+                onClick={async () => {
+                  const filePaths = allEpisodesForStats.map((ep) => ep.filePath)
+                  await clearAllSkipData(filePaths)
+                  setApplyStatus('Cleared all skip data for this folder.')
+                }}
               >
-                Save Skip Data
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="border border-dark-600 text-gray-500"
-                onClick={() => setManualSkip({})}
-              >
-                Clear
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Clear All
               </Button>
             </div>
           </div>
@@ -312,20 +536,37 @@ export function LibrarySettings() {
             variant="primary"
             onClick={handlePlay}
             disabled={!selectedEpisode}
+            className="gap-2"
           >
-            ▶ Play Selected Episode
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Play Selected Episode
           </Button>
           <Button
             variant="ghost"
+            className="gap-2"
             onClick={() => {
               useLibrarySettingsStore.getState().resetSettings()
             }}
           >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
             Reset
           </Button>
         </div>
 
-        <p className="text-xs text-gray-700 pb-4">
+        <p className="text-xs text-neutral-700 pb-4">
           {!selectedEpisode && 'Select an episode from the panel on the right to enable playback.'}
         </p>
       </div>
@@ -338,7 +579,9 @@ export function LibrarySettings() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">{title}</h2>
+      <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+        {title}
+      </h2>
       <div className="bg-dark-900 rounded-xl p-4 space-y-3">{children}</div>
     </div>
   )
@@ -347,10 +590,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Stat({ label, value, total }: { label: string; value: number; total?: number }) {
   return (
     <div className="bg-dark-800 rounded-lg px-3 py-2">
-      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xs text-neutral-500">{label}</p>
       <p className="text-lg font-semibold text-white">
         {value}
-        {total != null && <span className="text-sm text-gray-500 font-normal"> / {total}</span>}
+        {total != null && <span className="text-sm text-neutral-500 font-normal"> / {total}</span>}
       </p>
     </div>
   )

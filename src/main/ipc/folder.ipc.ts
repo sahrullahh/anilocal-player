@@ -1,4 +1,4 @@
-import { dialog, ipcMain } from 'electron'
+import { dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'fs'
 import { scanAnimeFolder } from '../services/scan-folder.service'
 
@@ -42,6 +42,26 @@ export function registerFolderIpc(): void {
     } catch {
       return null
     }
+  })
+
+  ipcMain.handle('folder:saveJsonFile', async (_, data: unknown) => {
+    try {
+      const result = await dialog.showSaveDialog({
+        filters: [
+          { name: 'Skip Pack / JSON', extensions: ['json', 'skip.json'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      })
+      if (result.canceled || !result.filePath) return false
+      await fs.writeFile(result.filePath, JSON.stringify(data, null, 2), 'utf-8')
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  ipcMain.handle('folder:openFolder', async (_, folderPath: string) => {
+    void shell.openPath(folderPath)
   })
 
   ipcMain.handle('folder:scan', async (_, folderPath: string) => {

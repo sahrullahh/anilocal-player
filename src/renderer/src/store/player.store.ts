@@ -20,6 +20,8 @@ interface PlayerState {
   // Progress & Skip
   updateProgress: (currentTime: number, duration: number) => Promise<void>
   updateSkipData: (data: SkipTimestamps) => Promise<void>
+  clearSkipForEpisode: (filePath: string) => Promise<void>
+  clearAllSkipData: (filePaths?: string[]) => Promise<void>
 
   // Control
   setIsPlaying: (playing: boolean) => void
@@ -109,6 +111,31 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }))
 
     window.api.saveSkipData(newSkipData).catch(console.error)
+  },
+
+  clearSkipForEpisode: async (filePath) => {
+    set((state) => {
+      const next = { ...state.skipData }
+      delete next[filePath]
+      return { skipData: next }
+    })
+    window.api.deleteSkipData([filePath]).catch(console.error)
+  },
+
+  clearAllSkipData: async (filePaths?: string[]) => {
+    if (filePaths && filePaths.length > 0) {
+      set((state) => {
+        const next = { ...state.skipData }
+        for (const fp of filePaths) {
+          delete next[fp]
+        }
+        return { skipData: next }
+      })
+      window.api.deleteSkipData(filePaths).catch(console.error)
+    } else {
+      set({ skipData: {} })
+      window.api.deleteSkipData().catch(console.error)
+    }
   },
 
   setIsPlaying: (playing) => set({ isPlaying: playing }),
