@@ -4,6 +4,8 @@ build
 example
 out
 .claude
+.kiro
+.opencode
 .DS_Store
 .eslintcache
 *.log*
