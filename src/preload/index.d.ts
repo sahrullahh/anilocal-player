@@ -101,6 +101,16 @@ export interface API {
   extractFonts: (videoPath: string) => Promise<{ paths: string[] } | { error: string }>
   generateThumbnail: (videoPath: string, timeSeconds?: number) => Promise<string | null>
   onOpenFile: (callback: (filePath: string) => void) => () => void
+  updater: {
+    getVersion: () => Promise<string>
+    check: (providerId?: string) => Promise<void>
+    download: () => Promise<void>
+    install: () => Promise<void>
+    cancel: () => Promise<void>
+    installLocal: () => Promise<void>
+    setChannel: (channel: 'stable' | 'beta') => Promise<void>
+    onEvent: (callback: (event: unknown) => void) => () => void
+  }
   discord: {
     connect: () => Promise<boolean>
     updateActivity: (payload: DiscordActivityPayload) => Promise<void>

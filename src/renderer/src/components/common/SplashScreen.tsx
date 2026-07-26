@@ -2,6 +2,8 @@
  * Startup splash screen shown while the app loads the library/settings data.
  * Fades out once `visible` becomes false.
  */
+import appLogo from '../../assets/app_logo.png'
+
 export function SplashScreen({ visible }: { visible: boolean }) {
   return (
     <div
@@ -10,7 +12,7 @@ export function SplashScreen({ visible }: { visible: boolean }) {
       }`}
     >
       <img
-        src="/app_logo.png"
+        src={appLogo}
         alt="AniLocal Player"
         draggable={false}
         className="w-24 h-24 object-contain select-none animate-pulse"

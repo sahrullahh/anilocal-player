@@ -105,6 +105,20 @@ const api = {
     // Return cleanup function
     return () => ipcRenderer.removeListener('player:openFileFromContextMenu', handler)
   },
+  updater: {
+    getVersion: () => ipcRenderer.invoke('updater:version') as Promise<string>,
+    check: (providerId?: string) => ipcRenderer.invoke('updater:check', providerId) as Promise<void>,
+    download: () => ipcRenderer.invoke('updater:download') as Promise<void>,
+    install: () => ipcRenderer.invoke('updater:install') as Promise<void>,
+    cancel: () => ipcRenderer.invoke('updater:cancel') as Promise<void>,
+    installLocal: () => ipcRenderer.invoke('updater:installLocal') as Promise<void>,
+    setChannel: (channel: 'stable' | 'beta') => ipcRenderer.invoke('updater:setChannel', channel) as Promise<void>,
+    onEvent: (callback: (event: unknown) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, event: unknown) => callback(event)
+      ipcRenderer.on('updater:event', handler)
+      return () => ipcRenderer.removeListener('updater:event', handler)
+    }
+  },
   discord: {
     connect: () => ipcRenderer.invoke('discord:connect'),
     updateActivity: (payload: DiscordActivityPayload) =>

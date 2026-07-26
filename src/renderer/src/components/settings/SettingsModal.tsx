@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Modal } from '../common/Modal'
 import { KeybindInput } from './KeybindInput'
 import { useSettingsStore, KEYBIND_LABELS } from '../../store/settings.store'
+import { UpdatePanel } from './UpdatePanel'
 import type { KeybindAction } from '../../store/settings.store'
 
 const LANGUAGES = [
@@ -22,7 +23,7 @@ type SettingsModalProps = {
   onClose: () => void
 }
 
-type Tab = 'general' | 'shortcuts'
+type Tab = 'general' | 'shortcuts' | 'application'
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [tab, setTab] = useState<Tab>('general')
@@ -51,7 +52,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         {(
           [
             ['general', 'General'],
-            ['shortcuts', 'Shortcuts']
+            ['shortcuts', 'Shortcuts'],
+            ['application', 'Application']
           ] as const
         ).map(([key, label]) => (
           <button
@@ -274,6 +276,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           >
             Reset to Defaults
           </button>
+        </div>
+      )}
+
+      {tab === 'application' && (
+        <div className="space-y-6">
+          <UpdatePanel />
         </div>
       )}
     </Modal>

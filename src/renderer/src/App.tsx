@@ -3,10 +3,12 @@ import { useLibraryStore } from './store/library.store'
 import { usePlayerStore } from './store/player.store'
 import { useSettingsStore } from './store/settings.store'
 import { useLibrarySettingsStore } from './store/library-settings.store'
+import { useUpdateStore, initUpdateEventBridge } from './store/update.store'
 import { LibrarySidebar } from './components/sidebar/LibrarySidebar'
 import { EpisodeList } from './components/sidebar/EpisodeList'
 import { VideoPlayer } from './components/player/VideoPlayer'
 import { SplashScreen } from './components/common/SplashScreen'
+import { UpdateToast } from './components/common/UpdateToast'
 import './assets/main.css'
 import { v4 as uuidv4 } from 'uuid'
 import type { Anime } from './types/anime'
@@ -21,10 +23,18 @@ function App(): React.JSX.Element {
   const { currentEpisode, loadSavedData, playEpisode, setPlaylist } = usePlayerStore()
   const { theme } = useSettingsStore()
   const { setCenterMode } = useLibrarySettingsStore()
+  const { setAppVersion } = useUpdateStore()
 
   const [showLibrary, setShowLibrary] = useState(false)
   const [showEpisodes, setShowEpisodes] = useState(false)
   const [showSplash, setShowSplash] = useState(true)
+
+  // Wire up main-process update events → renderer store
+  useEffect(() => {
+    const cleanup = initUpdateEventBridge()
+    window.api.updater.getVersion().then(setAppVersion).catch(console.error)
+    return cleanup
+  }, [])
 
   useEffect(() => {
     const start = Date.now()
@@ -88,6 +98,7 @@ function App(): React.JSX.Element {
   return (
     <div className="w-screen h-screen bg-dark-950 text-white flex overflow-hidden dark">
       <SplashScreen visible={showSplash} />
+      <UpdateToast />
 
       {/* Left Sidebar - Library */}
       {showLibrary && (
