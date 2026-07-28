@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLibraryStore } from '../../store/library.store'
 import { usePlayerStore } from '../../store/player.store'
 import { useLibrarySettingsStore } from '../../store/library-settings.store'
-import { Button } from '../common/Button'
 import { EmptyState } from '../common/EmptyState'
 import { SettingsModal } from '../settings/SettingsModal'
 import { buildEpisodeTree, countEpisodes } from '../../utils/episodeTree'
@@ -119,16 +118,10 @@ export function LibrarySidebar({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   // Currently selected folder key (for highlight). null = anime root folder itself.
   const [selectedFolderKey, setSelectedFolderKey] = useState<string | null>(null)
-  const {
-    libraries,
-    currentAnime,
-    isLoading,
-    loadLibrary,
-    addFolder,
-    setCurrentAnime,
-    removeLibrary,
-    reorderLibrary
-  } = useLibraryStore()
+  // Adding folders now lives in the title bar's File menu, so `addFolder` and
+  // its `isLoading` flag are no longer needed here.
+  const { libraries, currentAnime, loadLibrary, setCurrentAnime, removeLibrary, reorderLibrary } =
+    useLibraryStore()
   const { setPlaylist, resetPlayer } = usePlayerStore()
   const { selectAnime, resetSettings } = useLibrarySettingsStore()
 
