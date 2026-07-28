@@ -249,8 +249,8 @@ export function LibrarySidebar({
   return (
     <>
       <div className="w-64 bg-dark-900 border-r border-dark-800 flex flex-col h-full">
-        <div className="p-4 border-b border-dark-800">
-          <div className="flex items-center justify-between mb-1">
+        <div className="border-b border-dark-800">
+          <div className="flex items-center justify-between p-4 mb-1 border-b border-dark-800">
             <h1 className="text-sm font-semibold text-white">Recent Media</h1>
             {onClose && (
               <button
@@ -270,9 +270,13 @@ export function LibrarySidebar({
               </button>
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center justify-between gap-2 mb-3 py-2 px-4  border-b border-dark-800">
+            <h2 className="text-lg font-semibold text-white">Favorites</h2>
+          </div>
+          <div className="flex items-center justify-between gap-2 mb-2 py-2 px-4 border-dark-800">
             <h2 className="text-lg font-semibold text-white">Library</h2>
-            <button
+         
+            {/* <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
               className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-dark-800 transition-colors"
@@ -299,11 +303,9 @@ export function LibrarySidebar({
                   opacity="0.35"
                 />
               </svg>
-            </button>
+            </button> */}
           </div>
-          <Button onClick={addFolder} disabled={isLoading} className="w-full" size="sm">
-            {isLoading ? 'Scanning...' : '+ Add Folder'}
-          </Button>
+          
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -339,7 +341,7 @@ export function LibrarySidebar({
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, index)}
                       onDragEnd={handleDragEnd}
-                      className={`group relative rounded-lg p-3 cursor-pointer transition-colors ${
+                      className={`group relative rounded-md p-3 cursor-pointer transition-colors ${
                         dragIndex === index ? 'opacity-50' : ''
                       } ${
                         dropTarget === index && dragIndex !== index

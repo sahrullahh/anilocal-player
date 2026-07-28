@@ -8,16 +8,13 @@ import { useUpdateStore } from '../../store/update.store'
  */
 export function UpdateToast() {
   const status = useUpdateStore((s) => s.status)
-  const info = useUpdateStore((s) => s.info)
+  const silent = useUpdateStore((s) => s.silent)
   const prevStatusRef = useRef<string>('')
 
-  // Only show toast on status *transitions* that the user should know about
+  // Only show toast on status *transitions* that the user should know about.
+  // The 'available' state is handled by UpdateModal (an interactive popup), so
+  // it is intentionally omitted here to avoid a duplicate notification.
   const toastConfig: Partial<Record<string, { icon: string; text: string; color: string }>> = {
-    available: {
-      icon: '↑',
-      text: info ? `Update available: v${info.version}` : 'Update available',
-      color: 'bg-blue-700'
-    },
     downloaded: {
       icon: '✔',
       text: 'Download complete — restart to install',
@@ -30,7 +27,9 @@ export function UpdateToast() {
     }
   }
 
-  const toast = toastConfig[status]
+  // Suppress the "Already up to date" toast for the silent startup check —
+  // only surface it when the user manually checked from Settings.
+  const toast = status === 'not-available' && silent ? undefined : toastConfig[status]
   const isNew = prevStatusRef.current !== status
 
   useEffect(() => {

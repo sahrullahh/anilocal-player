@@ -8,7 +8,9 @@ import { LibrarySidebar } from './components/sidebar/LibrarySidebar'
 import { EpisodeList } from './components/sidebar/EpisodeList'
 import { VideoPlayer } from './components/player/VideoPlayer'
 import { SplashScreen } from './components/common/SplashScreen'
+import { TitleBar } from './components/common/TitleBar'
 import { UpdateToast } from './components/common/UpdateToast'
+import { UpdateModal } from './components/common/UpdateModal'
 import './assets/main.css'
 import { v4 as uuidv4 } from 'uuid'
 import type { Anime } from './types/anime'
@@ -22,18 +24,30 @@ function App(): React.JSX.Element {
   const { loadLibrary } = useLibraryStore()
   const { currentEpisode, loadSavedData, playEpisode, setPlaylist } = usePlayerStore()
   const { theme } = useSettingsStore()
-  const { setCenterMode } = useLibrarySettingsStore()
-  const { setAppVersion } = useUpdateStore()
+  const { setCenterMode, centerMode } = useLibrarySettingsStore()
+  const { setAppVersion, checkForUpdates } = useUpdateStore()
 
   const [showLibrary, setShowLibrary] = useState(false)
   const [showEpisodes, setShowEpisodes] = useState(false)
   const [showSplash, setShowSplash] = useState(true)
 
-  // Wire up main-process update events → renderer store
+  // Wire up main-process update events → renderer store, then silently check
+  // for a new version once at startup. If one is found, UpdateModal pops up
+  // and asks the user whether to update now or later.
   useEffect(() => {
     const cleanup = initUpdateEventBridge()
     window.api.updater.getVersion().then(setAppVersion).catch(console.error)
-    return cleanup
+
+    // Delay the check slightly so it runs after the splash screen, avoiding a
+    // popup flashing over the loading screen.
+    const timer = setTimeout(() => {
+      checkForUpdates('github', true).catch(console.error)
+    }, MIN_SPLASH_DURATION_MS + 600)
+
+    return () => {
+      clearTimeout(timer)
+      cleanup()
+    }
   }, [])
 
   useEffect(() => {
@@ -64,6 +78,12 @@ function App(): React.JSX.Element {
       setShowEpisodes(false)
     }
   }, [currentEpisode])
+
+  // Opening folder settings moves the episode list out of the center and into
+  // the right sidebar, so it needs to be visible there.
+  useEffect(() => {
+    if (centerMode === 'library-settings') setShowEpisodes(true)
+  }, [centerMode])
 
   // Listen for "Open with Video Player" context menu events from main process
   useEffect(() => {
@@ -96,15 +116,23 @@ function App(): React.JSX.Element {
   }, [playEpisode, setPlaylist])
 
   return (
-    <div className="w-screen h-screen bg-dark-950 text-white flex overflow-hidden dark">
+    <div className="w-screen h-screen bg-dark-950 text-white flex flex-col overflow-hidden dark">
       <SplashScreen visible={showSplash} />
       <UpdateToast />
+      <UpdateModal />
 
-      {/* Left Sidebar - Library */}
+      {/* Themed title bar. Windows draws the real window buttons on top of
+          this strip as an overlay, tinted to match the active theme. */}
+      <TitleBar />
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Left Sidebar - Library */}
       {showLibrary && (
         <LibrarySidebar
           onClose={() => setShowLibrary(false)}
-          onSelectAnime={() => setShowEpisodes(true)}
+          // Picking a folder shows the episode grid in the center instead of
+          // the right sidebar, so the grid sits flush against this list.
+          onSelectAnime={() => setShowEpisodes(false)}
           onRemoveAnime={(remaining) => {
             // If no folders left, close episode panel. Otherwise keep library open.
             if (remaining === 0) {
@@ -122,8 +150,12 @@ function App(): React.JSX.Element {
         onToggleEpisodes={() => setShowEpisodes((v) => !v)}
       />
 
-      {/* Right Sidebar - Episode List */}
-      {showEpisodes && <EpisodeList onClose={() => setShowEpisodes(false)} />}
+        {/* Right Sidebar - Episode List. Hidden while the center area is
+            already showing the episode grid, to avoid listing them twice. */}
+        {showEpisodes && centerMode !== 'episodes' && (
+          <EpisodeList onClose={() => setShowEpisodes(false)} />
+        )}
+      </div>
     </div>
   )
 }

@@ -1,35 +1,56 @@
 import React from 'react'
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'subtle' | 'ghost' | 'danger'
   size?: 'sm' | 'md' | 'lg'
 }
 
+/**
+ * Changes from the previous implementation:
+ * - `ghost` no longer hardcodes `text-gray-300`, `danger` no longer
+ *   hardcodes `red-600`/`red-700`; both use semantic tokens.
+ * - `focus:ring` became `focus-visible:ring`, so the ring no longer
+ *   appears after every mouse click.
+ * - New `subtle` variant replaces the repeated
+ *   `variant="ghost" className="border border-dark-600"` pattern
+ *   (used seven times in LibrarySettings alone).
+ */
 export function Button({
   variant = 'primary',
   size = 'md',
   className = '',
   children,
+  type = 'button',
   ...props
 }: ButtonProps) {
-  const baseStyles =
-    'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-950 disabled:opacity-50 disabled:cursor-not-allowed'
+  const baseStyles = [
+    'inline-flex items-center justify-center gap-2 font-medium rounded-md',
+    'transition-colors duration-fast ease-standard focus-ring',
+    'disabled:opacity-50 disabled:cursor-not-allowed'
+  ].join(' ')
 
   const variants = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500',
-    secondary: 'bg-dark-700 hover:bg-dark-600 text-white focus:ring-dark-500',
-    ghost: 'bg-transparent hover:bg-dark-800 text-gray-300 focus:ring-dark-500',
-    danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500'
+    primary: 'bg-accent hover:bg-accent-hover active:bg-accent-active text-content-on-accent',
+    secondary: 'bg-surface-active hover:bg-surface-hover text-content-primary',
+    subtle:
+      'bg-surface-raised hover:bg-surface-hover text-content-secondary hover:text-content-primary',
+    ghost: 'bg-transparent hover:bg-surface-hover text-content-secondary',
+    danger: 'bg-status-danger text-content-on-accent hover:opacity-90'
   }
 
+  // Minimum 32px height at every size, per the accessibility target.
   const sizes = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg'
+    sm: 'h-8 px-3 text-label',
+    md: 'h-10 px-4 text-body',
+    lg: 'h-12 px-6 text-subtitle'
   }
 
   return (
-    <button className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
+    <button
+      type={type}
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      {...props}
+    >
       {children}
     </button>
   )

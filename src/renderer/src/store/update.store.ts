@@ -31,6 +31,9 @@ interface UpdateState {
   error: string | null
   channel: UpdateChannel
   appVersion: string
+  /** True when the current check was triggered silently (e.g. at startup),
+   *  so the UI can suppress the "up to date" toast. */
+  silent: boolean
 
   // Actions
   setStatus: (status: UpdateStatus) => void
@@ -41,7 +44,7 @@ interface UpdateState {
   setAppVersion: (version: string) => void
 
   // IPC-triggered actions
-  checkForUpdates: (providerId?: string) => Promise<void>
+  checkForUpdates: (providerId?: string, silent?: boolean) => Promise<void>
   downloadUpdate: () => Promise<void>
   installUpdate: () => Promise<void>
   cancelDownload: () => Promise<void>
@@ -55,6 +58,7 @@ export const useUpdateStore = create<UpdateState>((set, _get) => ({
   error: null,
   channel: 'stable',
   appVersion: '',
+  silent: false,
 
   setStatus: (status) => set({ status }),
   setInfo: (info) => set({ info }),
@@ -67,8 +71,8 @@ export const useUpdateStore = create<UpdateState>((set, _get) => ({
     window.api.updater.setChannel(channel).catch(console.error)
   },
 
-  checkForUpdates: async (providerId) => {
-    set({ status: 'checking', error: null })
+  checkForUpdates: async (providerId, silent = false) => {
+    set({ status: 'checking', error: null, silent })
     await window.api.updater.check(providerId)
   },
 

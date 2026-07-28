@@ -168,8 +168,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               max="1"
               step="0.05"
               value={volume}
+              aria-label="Default volume"
+              // Feeds the filled portion of the track.
+              style={{ ['--range-fill' as string]: `${volume * 100}%` }}
               onChange={(e) => setVolume(Number(e.target.value))}
-              className="w-full accent-blue-600"
+              className="w-full"
             />
           </div>
 
@@ -226,14 +229,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               </div>
               <p className="text-xs text-gray-500 mt-2">
                 ASS &gt; SSA &gt; SRT &gt; VTT (urutan prioritas default untuk fansub)
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 rounded-xl bg-dark-900 p-4 border border-dark-700">
-            <div>
-              <p className="text-sm text-gray-400 mt-1 text-center">
-                Developed by Mohammad Sahrullah
               </p>
             </div>
           </div>

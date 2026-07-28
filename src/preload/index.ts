@@ -84,6 +84,9 @@ const api = {
     ipcRenderer.invoke('storage:saveSkipData', data),
   deleteSkipData: (keys?: string[]) => ipcRenderer.invoke('storage:deleteSkipData', keys),
   openFolder: (folderPath: string) => ipcRenderer.invoke('folder:openFolder', folderPath),
+  setTitleBarColors: (colors: { color: string; symbolColor: string; dark: boolean }) =>
+    ipcRenderer.invoke('window:setTitleBarColors', colors),
+  closeWindow: () => ipcRenderer.invoke('window:close'),
   convertSrtToVtt: (path: string) => ipcRenderer.invoke('subtitle:convertSrtToVtt', path),
   toFileUrl: (path: string) => ipcRenderer.invoke('subtitle:toFileUrl', path),
   readSubtitleFile: (path: string) => ipcRenderer.invoke('subtitle:readFile', path),

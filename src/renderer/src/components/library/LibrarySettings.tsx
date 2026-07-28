@@ -105,6 +105,20 @@ export function LibrarySettings() {
   const packs = skipPacks[animeId] ?? []
   const activePackId = activeSkipPackId[animeId] ?? null
 
+  // `selectedAnime.path` always points at the library root, even when a
+  // sub-folder is the one actually open — sub-folder selection only rescopes
+  // `name` and `episodes`. The episodes are the direct (non-recursive) children
+  // of whatever folder was last clicked, so their `folderPath` is that folder.
+  const openedFolderPath = selectedAnime.episodes[0]?.folderPath ?? selectedAnime.path
+  const openedFolderName =
+    openedFolderPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedAnime.name
+
+  // `name` carries the whole chain for sub-folders, e.g. "Videos / Nvidia / The
+  // Forest". Split it so the title is just the folder that was opened.
+  const nameSegments = selectedAnime.name.split(' / ').filter(Boolean)
+  const folderTitle = nameSegments[nameSegments.length - 1] ?? selectedAnime.name
+  const folderParents = nameSegments.slice(0, -1).join(' / ')
+
   // Stats (always computed from the full, un-scoped episode list for this anime)
   const totalEpisodes = allEpisodesForStats.length
   const episodesWithSubtitle = allEpisodesForStats.filter(
@@ -216,18 +230,16 @@ export function LibrarySettings() {
       outroStart: entry.outroStart,
       outroEnd: entry.outroEnd
     }
-    // Temporarily set as current episode so updateSkipData works
-    const prevEpisode = usePlayerStore.getState().currentEpisode
-    usePlayerStore.setState({ currentEpisode: selectedEpisode })
-    await updateSkipData(data)
-    usePlayerStore.setState({ currentEpisode: prevEpisode })
+    // Write directly to the target episode. We must NOT touch currentEpisode
+    // here — changing it triggers App's playback effect, which closes both
+    // sidebars.
+    await updateSkipData(data, selectedEpisode.filePath)
     setApplyStatus(`Applied to: ${selectedEpisode.fileName}`)
   }
 
   // ── Apply skip pack to all episodes ──────────────────────────────
   const handleApplyToAllEpisodes = async () => {
     let count = 0
-    const prevEpisode = usePlayerStore.getState().currentEpisode
 
     for (const episode of allEpisodesForStats) {
       const entry = resolveSkipForEpisode(animeId, episode)
@@ -238,12 +250,12 @@ export function LibrarySettings() {
         outroStart: entry.outroStart,
         outroEnd: entry.outroEnd
       }
-      usePlayerStore.setState({ currentEpisode: episode })
-      await updateSkipData(data)
+      // Pass the target filePath so currentEpisode is never mutated (mutating it
+      // would collapse the sidebars via App's playback effect).
+      await updateSkipData(data, episode.filePath)
       count++
     }
 
-    usePlayerStore.setState({ currentEpisode: prevEpisode })
     setApplyStatus(`Applied to ${count} episodes.`)
   }
 
@@ -259,17 +271,40 @@ export function LibrarySettings() {
       <div className="relative max-w-2xl mx-auto px-6 py-6 space-y-6">
         {/* Header */}
         <div>
-          <p className="text-xs text-neutral-500">Title</p>
-          <h1 className="text-2xl font-bold text-white truncate">{selectedAnime.name}</h1>
+          {/* Back to the full-width episode grid this panel was opened from. */}
+          <button
+            type="button"
+            onClick={() => setCenterMode('episodes')}
+            className="mb-3 inline-flex items-center gap-1.5 px-2 py-1.5 -ml-2 rounded-lg text-xs text-neutral-300 hover:bg-dark-800 hover:text-white transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            Back to Episodes
+          </button>
+          {/* Same treatment as the episode grid: parents as breadcrumb, the
+              opened folder as the title. */}
+          <p className="text-xs text-neutral-500 truncate">{folderParents || 'Title'}</p>
+          <h1 className="text-2xl font-bold text-white truncate" title={selectedAnime.name}>
+            {folderTitle}
+          </h1>
 
           {/* Location */}
           <div className="mt-8 px-3 py-2 bg-dark-800 rounded-lg flex items-center justify-between">
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-neutral-500">Location</p>
-              <p className="text-sm text-white truncate">{selectedAnime.path}</p>
+              <p className="text-xs text-neutral-500">Folder</p>
+              {/* Just the opened folder's own name; the full path is on hover. */}
+              <p className="text-sm text-white truncate" title={openedFolderPath}>
+                {openedFolderName}
+              </p>
             </div>
             <button
-              onClick={() => window.api.openFolder(selectedAnime.path)}
+              onClick={() => window.api.openFolder(openedFolderPath)}
               className="ml-3 shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-dark-600 text-neutral-300 hover:bg-dark-700 hover:text-white transition-colors"
               title="Open folder location"
             >
