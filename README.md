@@ -8,11 +8,10 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)](#)
 [![License](https://img.shields.io/badge/license-MIT-green)](#)
 
----
-
 ## ✨ Fitur Utama
 
 ### 📚 Library & File Management
+
 - **Library Sidebar** — kelola banyak anime/series dalam satu tempat.
 - **Folder Scanning otomatis** — pilih folder, Anilocal akan otomatis mendeteksi semua video (`mp4`, `mkv`, `webm`, `avi`) di dalamnya termasuk sub-folder.
 - **Fansub Parser** — mengenali pola nama file fansub seperti `[SubsPlease] Frieren - 12 (1080p) [ABCD1234].mkv` dan mengekstrak group, judul, dan nomor episode.
@@ -22,6 +21,7 @@
 - **Natural Sort** — episode diurutkan dengan natural compare (Episode 2 sebelum Episode 10).
 
 ### 🎥 Video Player
+
 - **Format video lengkap** — `MP4`, `MKV`, `WebM`, `AVI` via HTML5 `<video>` element.
 - **Custom Video Controls** — UI kontrol yang clean, dengan auto-hide saat idle/fullscreen.
 - **Klik untuk play/pause** — klik pada area video untuk toggle play/pause.
@@ -34,6 +34,7 @@
 - **"Open With" context menu** — klik kanan link video di browser → buka dengan Anilocal.
 
 ### ⏭️ Skip Intro/Outro (Fitur Unggulan)
+
 - **Manual Skip Editor** — buka modal edit dan masukkan timestamp `introStart`, `introEnd`, `outroStart`, `outroEnd` per episode.
 - **Skip Overlay** — tombol "Skip Intro"/"Skip Outro" muncul otomatis saat berada di zona timestamp.
 - **Skip Pack Import** — import JSON berisi skip-timestamp banyak episode sekaligus, langsung terapkan ke semua episode anime.
@@ -41,6 +42,7 @@
 - **Tombol `S`** — keyboard shortcut untuk skip intro/outro secara manual.
 
 ### 💬 Multi-Format Subtitle
+
 - **Mendukung `ASS`, `SSA`, `SRT`, `VTT`** — semua format subtitle umum.
 - **ASS/SSA Canvas Renderer** — render subtitle ASS/SSA lengkap dengan styling (font, warna, outline, shadow), positioning, multi-line, dan karaoke timing menggunakan `ass-compiler` + HTML5 Canvas.
 - **SRT → VTT auto-conversion** — file `.srt` otomatis dikonversi ke `.vtt` untuk kompatibilitas browser.
@@ -53,12 +55,14 @@
 - **On-the-fly switching** — ganti subtitle tanpa reload video.
 
 ### 🎮 Discord Rich Presence
+
 - **Activity otomatis** — menampilkan "Watching [Anime Title]", "Episode X • MM:SS / MM:SS", play/pause icon.
 - **Real-time sync** — update setiap 15 detik selama playback.
 - **Idle state** — menampilkan "Idling • Not playing" saat tidak ada video aktif.
 - **Configurable via `.env`** — set `DISCORD_CLIENT_ID` untuk aktifkan integrasi.
 
 ### ⚙️ Settings & Preferences
+
 - **Autoplay toggle** — on/off auto-play episode berikutnya.
 - **Default Volume** — set volume default tiap kali player dibuka.
 - **Preferred Subtitle Language** — pilih dari 9 bahasa.
@@ -67,20 +71,21 @@
 
 ### ⌨️ Keyboard Shortcuts
 
-| Tombol        | Aksi                                  |
-|---------------|---------------------------------------|
-| `Space`       | Play / Pause                          |
-| `→`           | Seek forward 10 detik                 |
-| `←`           | Seek backward 10 detik                |
-| `F`           | Toggle fullscreen                     |
-| `M`           | Toggle mute                           |
-| `N`           | Next episode                          |
-| `S`           | Skip intro/outro                      |
-| `T`           | Cycle subtitle track                  |
-| `Shift+T`     | Turn off subtitle                     |
-| Klik video    | Toggle play/pause                     |
+| Tombol     | Aksi                   |
+| ---------- | ---------------------- |
+| `Space`    | Play / Pause           |
+| `→`        | Seek forward 10 detik  |
+| `←`        | Seek backward 10 detik |
+| `F`        | Toggle fullscreen      |
+| `M`        | Toggle mute            |
+| `N`        | Next episode           |
+| `S`        | Skip intro/outro       |
+| `T`        | Cycle subtitle track   |
+| `Shift+T`  | Turn off subtitle      |
+| Klik video | Toggle play/pause      |
 
 ### 🎨 UI/UX
+
 - **Modern Dark Theme** — desain gelap yang nyaman di mata.
 - **Tailwind CSS** — utility-first styling untuk konsistensi visual.
 - **Smooth Animations** — fade in/out controls, transitions, hover effects.
@@ -92,25 +97,44 @@
 
 ## 🚀 Tech Stack
 
-| Layer        | Technology                                  |
-|--------------|---------------------------------------------|
-| Runtime      | **Electron 39** + electron-vite             |
-| UI           | **React 19** + TypeScript 5                 |
-| State        | **Zustand 5** (with persist middleware)     |
-| Styling      | **Tailwind CSS 3**                          |
-| Subtitle     | **ass-compiler** + Canvas API               |
-| Discord      | **discord-rpc**                             |
-| Storage      | **lowdb** (JSON-based local DB)             |
-| Auto-Update  | **electron-updater**                        |
-| Packaging    | **electron-builder** (NSIS/DMG/AppImage)    |
+| Layer       | Technology                               |
+| ----------- | ---------------------------------------- |
+| Runtime     | **Electron 39** + electron-vite          |
+| UI          | **React 19** + TypeScript 5              |
+| State       | **Zustand 5** (with persist middleware)  |
+| Styling     | **Tailwind CSS 3**                       |
+| Subtitle    | **ass-compiler** + Canvas API            |
+| Discord     | **discord-rpc**                          |
+| Storage     | **lowdb** (JSON-based local DB)          |
+| Auto-Update | **electron-updater**                     |
+| Packaging   | **electron-builder** (NSIS/DMG/AppImage) |
+
+---
+
+# Screenshots
+
+---
+
+### Home
+
+![Anilocal Player](home.png)
+
+### Libray List
+
+![Anilocal Player](library.png)
+
+### Player Control
+
+![Anilocal Player](player.png)
 
 ---
 
 ## 📦 Instalasi
 
 ### Prerequisites
+
 - **Node.js** ≥ 20.x
-- **npm** atau **pnpm`
+- **npm** atau \*\*pnpm`
 - OS: Windows 10/11, macOS, atau Linux
 
 ### Install dependencies
@@ -192,31 +216,38 @@ npm run build:unpack
 ## 📖 Cara Pakai
 
 ### 1️⃣ Menambahkan Anime ke Library
+
 - Buka sidebar **Library** (ikon folder di kiri atas player).
 - Klik **"+ Add Folder"** dan pilih folder berisi file anime.
 - Anilocal otomatis scan semua video + subtitle yang matching.
 
 ### 2️⃣ Mulai Nonton
+
 - Pilih anime dari sidebar → masuk ke **Library Settings** mode.
 - Pilih episode dari daftar → klik **Play**.
 - Player akan otomatis load subtitle berdasarkan preferensi.
 
 ### 3️⃣ Set Skip Timestamps
+
 **Cara 1 — Manual per episode:**
+
 - Saat video playing, klik ikon ⚙️ "Edit Skip" di kontrol bar.
 - Isi `Intro Start`, `Intro End`, `Outro Start`, `Outro End` (format `MM:SS`).
 
 **Cara 2 — Import Skip Pack JSON:**
+
 - Di Library Settings, klik **Import Skip Pack**.
 - Pilih file JSON (format array `[ { episodeNumber, introEnd, ... }, ... ]`).
 - Skip-timestamp langsung diterapkan ke semua episode matching.
 
 ### 4️⃣ Ganti Subtitle
+
 - Klik ikon 💬 subtitle di control bar → pilih dari daftar.
 - Atau tekan `T` untuk cycle otomatis.
 - Tekan `Shift+T` untuk matikan subtitle.
 
 ### 5️⃣ Aktifkan Discord Rich Presence
+
 - Set `DISCORD_CLIENT_ID` di `.env`.
 - Jalankan ulang aplikasi.
 - Status Discord akan otomatis update selama playback.
@@ -312,4 +343,5 @@ Distributed under the MIT License. See `LICENSE` untuk detail lengkap.
 **Mohammad Sahrullah**
 
 Dibuat dengan ❤️ dan bantuan AI.
+
 > Powered by AI. Built for anime fans who prefer local playback.

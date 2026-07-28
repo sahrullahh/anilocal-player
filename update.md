@@ -1,3 +1,51 @@
+# Anilocal Player v0.6.2
+
+## Apa yang Baru?
+
+### UI Overhaul (Tailwind CSS)
+- Migrasi penuh ke Tailwind CSS dengan design system yang konsisten
+- Palet warna, spacing, dan tipografi terstandarisasi di seluruh aplikasi
+- Komponen UI baru: `Badge`, `Chip`, `IconButton`, `Toggle`, `Skeleton`, `Spinner`, `StatusMessage`, `ProgressTrack`
+
+### Custom Title Bar & Menu Bar
+- Title bar custom dengan logo Anilocal dan drag region
+- Menu bar: **File** (Open File/Folder, Exit), **Settings**, **Help** (About, Update)
+- Keyboard shortcut: `Ctrl+O` (open file), `Ctrl+Shift+O` (open folder), `Ctrl+,` (settings)
+
+### About Modal
+- Help → About menampilkan versi aplikasi dan opsi check update
+
+### Icon System
+- Unified icon set dengan stroke width konsisten (1.75)
+- Ukuran: `xs`, `sm`, `md`, `lg` — dipakai di semua komponen
+
+### Episode List Improvements
+- Thumbnail generation dengan concurrency limit (max 3 ffmpeg process paralel)
+- Cache thumbnail per episode — tidak regenerate saat switch anime
+
+### Logo Update
+- Logo aplikasi diubah dari ikon play ke logo Anilocal
+
+### Perbaikan & Peningkatan
+- **Improvement**: Modal component dengan backdrop blur dan animasi
+- **Improvement**: Button component dengan variant (primary, secondary, ghost, danger)
+- **Improvement**: Library settings panel yang lebih rapi
+- **Improvement**: Video player cleanup — komponen lebih ringkas
+
+---
+
+# Anilocal Player v0.6.1
+
+## Apa yang Baru?
+
+### Auto-Update System
+- Check update otomatis dari GitHub Releases saat aplikasi startup
+- Update panel di Settings untuk manual check dan download
+- Progress bar download dengan kecepatan dan estimasi
+- Restart & install setelah download selesai
+
+---
+
 # Anilocal Player v0.6.0
 
 ## Apa yang Baru?

@@ -1,6 +1,6 @@
 {
   "name": "anilocal-player",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Local anime player with skip intro/outro and progress tracking",
   "main": "./out/main/index.js",
   "author": "Sahrullah",
