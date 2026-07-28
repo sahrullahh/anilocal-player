@@ -85,6 +85,12 @@ export interface API {
   saveSkipData: (data: Record<string, SkipEntry>) => Promise<Record<string, SkipEntry>>
   deleteSkipData: (keys?: string[]) => Promise<Record<string, SkipEntry>>
   openFolder: (folderPath: string) => Promise<void>
+  setTitleBarColors: (colors: {
+    color: string
+    symbolColor: string
+    dark: boolean
+  }) => Promise<void>
+  closeWindow: () => Promise<void>
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
   readSubtitleFile: (path: string) => Promise<string>

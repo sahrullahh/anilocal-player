@@ -3,7 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Theme: Slate — blue primary ──────────────────────────────────── */
+/* ── Theme: Slate — violet primary ────────────────────────────────── */
 :root,
 [data-theme='slate'] {
   --c-50:  #f9fafb;
@@ -18,21 +18,21 @@
   --c-900: #111827;
   --c-950: #030712;
 
-  /* primary: Tailwind blue */
-  --p-50:  #eff6ff;
-  --p-100: #dbeafe;
-  --p-200: #bfdbfe;
-  --p-300: #93c5fd;
-  --p-400: #60a5fa;
-  --p-500: #3b82f6;
-  --p-600: #2563eb;
-  --p-700: #1d4ed8;
-  --p-800: #1e40af;
-  --p-900: #1e3a8a;
-  --p-950: #172554;
+  /* primary: Tailwind violet — same ramp the light theme uses */
+  --p-50:  #f5f3ff;
+  --p-100: #ede9fe;
+  --p-200: #ddd6fe;
+  --p-300: #c4b5fd;
+  --p-400: #a78bfa;
+  --p-500: #8b5cf6;
+  --p-600: #7c3aed;
+  --p-700: #6d28d9;
+  --p-800: #5b21b6;
+  --p-900: #4c1d95;
+  --p-950: #2e1065;
 }
 
-/* ── Theme: Neutral — indigo primary ───────────────────────────────── */
+/* ── Theme: Neutral — violet primary ──────────────────────────────── */
 [data-theme='neutral'] {
   --c-50:  #fafafa;
   --c-100: #f5f5f5;
@@ -46,18 +46,18 @@
   --c-900: #171717;
   --c-950: #0a0a0a;
 
-  /* primary: Tailwind indigo */
-  --p-50:  #eef2ff;
-  --p-100: #e0e7ff;
-  --p-200: #c7d2fe;
-  --p-300: #a5b4fc;
-  --p-400: #818cf8;
-  --p-500: #6366f1;
-  --p-600: #4f46e5;
-  --p-700: #4338ca;
-  --p-800: #3730a3;
-  --p-900: #312e81;
-  --p-950: #1e1b4b;
+  /* primary: Tailwind violet — same ramp the light theme uses */
+  --p-50:  #f5f3ff;
+  --p-100: #ede9fe;
+  --p-200: #ddd6fe;
+  --p-300: #c4b5fd;
+  --p-400: #a78bfa;
+  --p-500: #8b5cf6;
+  --p-600: #7c3aed;
+  --p-700: #6d28d9;
+  --p-800: #5b21b6;
+  --p-900: #4c1d95;
+  --p-950: #2e1065;
 }
 
 /* ── Theme: Light — violet primary ─────────────────────────────────── */
@@ -88,7 +88,124 @@
   --p-950: #2e1065;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   SEMANTIC TOKEN LAYER
+   ══════════════════════════════════════════════════════════════════
+   Components must never reference the raw ramps (--c-*, --p-*) or
+   literal colours. They consume these semantic tokens instead, via the
+   Tailwind utilities declared in tailwind.config.js.
+
+   Most tokens derive from the raw ramp, so all three themes inherit
+   them for free: the `light` theme already inverts the --c-* scale
+   (--c-50 is #09090b there), which means "--content-primary: var(--c-50)"
+   resolves correctly in every theme without a single override.
+
+   Adding a new Theme Pack = redefine the raw ramps plus the two groups
+   that cannot be derived (status colours, below) on one
+   [data-theme='...'] selector. No component changes required.
+   ────────────────────────────────────────────────────────────────── */
+:root {
+  /* Surface — layered depth, used instead of borders */
+  --surface-base: var(--c-950); /* app background, video area */
+  --surface-sunken: var(--c-950); /* input wells, progress tracks */
+  --surface-default: var(--c-900); /* panels: sidebar, episode list, cards */
+  --surface-raised: var(--c-800); /* rows/cards inside a panel */
+  --surface-overlay: var(--c-800); /* dialogs, popups, context menus */
+  --surface-hover: var(--c-800);
+  --surface-active: var(--c-700);
+
+  /* Content — text and icons */
+  --content-primary: var(--c-50);
+  --content-secondary: var(--c-300);
+  --content-tertiary: var(--c-400);
+  --content-muted: var(--c-500);
+  --content-disabled: var(--c-600);
+  --content-on-accent: #ffffff;
+
+  /* Accent */
+  --accent: var(--p-600);
+  --accent-hover: var(--p-500);
+  --accent-active: var(--p-700);
+  --accent-content: var(--p-400); /* accented text/icons on a surface */
+  --accent-subtle: var(--p-500); /* pair with an opacity modifier */
+
+  /* Line — only for separators that genuinely aid grouping */
+  --line-subtle: var(--c-800);
+  --line-strong: var(--c-700);
+
+  /* Focus */
+  --focus-ring: var(--p-400);
+  --focus-offset: var(--c-950);
+
+  /* Geometry */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Elevation */
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.24);
+  --shadow-overlay: 0 12px 32px -8px rgb(0 0 0 / 0.45);
+
+  /* Motion */
+  --motion-fast: 120ms; /* hover / press feedback */
+  --motion-base: 180ms; /* state changes */
+  --motion-slow: 280ms; /* panel & dialog enter/exit */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Status colours ────────────────────────────────────────────────
+   Cannot derive from the ramp: a green that reads well on a dark
+   surface does not read well on a light one. Declared per theme.
+   ────────────────────────────────────────────────────────────────── */
+:root,
+[data-theme='slate'],
+[data-theme='neutral'] {
+  --status-success: #4ade80;
+  --status-success-surface: #14532d;
+  --status-warning: #fbbf24;
+  --status-warning-surface: #451a03;
+  --status-danger: #f87171;
+  --status-danger-surface: #450a0a;
+  --status-info: var(--p-400);
+  --status-neutral: var(--c-400);
+}
+
+[data-theme='light'] {
+  --status-success: #15803d;
+  --status-success-surface: #dcfce7;
+  --status-warning: #b45309;
+  --status-warning-surface: #fef3c7;
+  --status-danger: #b91c1c;
+  --status-danger-surface: #fee2e2;
+  --status-info: var(--p-600);
+  --status-neutral: var(--c-500);
+}
+
+/* ── Video-context tokens ──────────────────────────────────────────
+   Fixed across every theme. Controls sitting on top of video have
+   video frames as their backdrop, not an app surface, so they must
+   stay dark with light content even while the app is in light mode.
+   These replace the fragile [class*='from-black'] overrides.
+   ────────────────────────────────────────────────────────────────── */
+:root {
+  --video-scrim-top: rgb(0 0 0 / 0.65);
+  --video-scrim-bottom: rgb(0 0 0 / 0.8);
+  --video-surface: rgb(24 24 27 / 0.92); /* subtitle popup, context menu */
+  --video-control-hover: rgb(255 255 255 / 0.12);
+  --video-control-active: rgb(255 255 255 / 0.2);
+  --video-content: #fafafa;
+  --video-content-muted: rgb(250 250 250 / 0.64);
+  --video-track: rgb(255 255 255 / 0.24);
+  --video-track-buffered: rgb(255 255 255 / 0.4);
+}
+
 /* ── Light theme: text remapping ───────────────────────────────── */
+/* TEMPORARY. These overrides exist only because components still use
+   `text-white` / `text-gray-*` instead of the semantic tokens above.
+   They are removed in task 6.7, once every component is migrated.
+   Do not add new rules here. */
 [data-theme='light'] body { color: #18181b; }
 
 /* Text inside bg-dark-* surfaces (inverted to light) → dark */
@@ -139,22 +256,117 @@
   #root { @apply w-screen h-screen; }
 }
 
-/* ── Animations ────────────────────────────────────────────────────── */
+/* ── Animations ────────────────────────────────────────────────────
+   `slideUp` lives in tailwind.config.js only — it used to be defined
+   in both places with identical keyframes.
+   `anilocal-spin` used to be injected via a <style> tag on every
+   BufferingSpinner mount; it belongs here instead.
+   ────────────────────────────────────────────────────────────────── */
+@keyframes anilocal-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Focus ─────────────────────────────────────────────────────────
+   Single source for focus rings. Uses :focus-visible so the ring
+   shows for keyboard navigation but not after a mouse click.
+   ────────────────────────────────────────────────────────────────── */
 @layer utilities {
-  .animate-slideUp {
-    animation: slideUp 0.3s ease-out;
+  .focus-ring {
+    outline: none;
   }
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  /* For controls on top of video, where the app focus colour can wash
+     out against bright frames. */
+  .focus-ring-video:focus-visible {
+    outline: 2px solid var(--video-content);
+    outline-offset: 2px;
   }
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { @apply bg-dark-900; }
-::-webkit-scrollbar-thumb { @apply bg-dark-700 rounded-full; }
-::-webkit-scrollbar-thumb:hover { @apply bg-dark-600; }
+::-webkit-scrollbar-track { background: var(--surface-base); }
+::-webkit-scrollbar-thumb {
+  background: var(--surface-active);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--content-disabled); }
+
+/* ── Range inputs ──────────────────────────────────────────────────
+   Token-driven styling for the volume slider and the default-volume
+   slider in Settings. The native element is kept for accessibility;
+   only its appearance changes. A 16px tall transparent hit area sits
+   around a 4px visible track, so the control is easy to grab without
+   looking heavy.
+   ────────────────────────────────────────────────────────────────── */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+  /* Overridden inline with the current value as a percentage. Setting
+     `-webkit-appearance: none` removes the browser's own filled track, so the
+     fill is drawn here instead. */
+  --range-fill: 0%;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0 var(--range-fill),
+    var(--surface-active) var(--range-fill) 100%
+  );
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px; /* centre the 12px thumb on the 4px track */
+  border-radius: 9999px;
+  background: var(--accent);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+input[type='range']:hover::-webkit-slider-thumb,
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+input[type='range']:active::-webkit-slider-thumb {
+  background: var(--accent-active);
+}
+input[type='range']:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 9999px;
+}
+input[type='range']:disabled {
+  cursor: not-allowed;
+}
+input[type='range']:disabled::-webkit-slider-thumb {
+  background: var(--content-disabled);
+}
+
+/* Volume slider sits on top of video, so it uses the video-context
+   tokens instead of app surfaces. */
+input[type='range'].range-video::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--video-content) 0 var(--range-fill),
+    var(--video-track) var(--range-fill) 100%
+  );
+}
+input[type='range'].range-video::-webkit-slider-thumb {
+  background: var(--video-content);
+}
+input[type='range'].range-video:focus-visible {
+  outline-color: var(--video-content);
+}
 
 /* ── Video ─────────────────────────────────────────────────────────── */
 video { object-fit: contain; background: #000; }

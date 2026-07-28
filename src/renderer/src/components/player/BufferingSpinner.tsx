@@ -56,14 +56,6 @@ export function BufferingSpinner({ visible }: BufferingSpinnerProps) {
           />
         </svg>
       </div>
-
-      {/* Inject keyframes once — Tailwind doesn't ship a 0-360 spin by default */}
-      <style>{`
-        @keyframes anilocal-spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   )
 }

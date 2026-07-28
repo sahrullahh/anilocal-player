@@ -15,12 +15,12 @@ import { AutoplayCountdown } from './AutoplayCountdown'
 import { AssRenderer } from './AssRenderer'
 import { BufferingSpinner } from './BufferingSpinner'
 import { LibrarySettings } from '../library/LibrarySettings'
+import { EpisodeList } from '../sidebar/EpisodeList'
+import { useOpenMedia } from '../../hooks/useOpenMedia'
 import type { SkipTimestamps } from '../../types/anime'
 import type { DiscordActivityPayload } from '../../types/electron-api'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatTime } from '../../utils/time'
-import { v4 as uuidv4 } from 'uuid'
-import type { Anime } from '../../types/anime'
 import appLogo from '../../assets/app_logo.png'
 
 export function VideoPlayer({
@@ -34,9 +34,9 @@ export function VideoPlayer({
   onToggleLibrary: () => void
   onToggleEpisodes: () => void
 }) {
-  const { currentEpisode, skipData, updateSkipData, playEpisode, setPlaylist } = usePlayerStore()
+  const { currentEpisode, skipData, updateSkipData } = usePlayerStore()
   const { addFolder } = useLibraryStore()
-  const { centerMode, setCenterMode } = useLibrarySettingsStore()
+  const { centerMode } = useLibrarySettingsStore()
   const { autoSkipIntroOutro } = useSettingsStore()
   const {
     videoRef,
@@ -231,34 +231,15 @@ export function VideoPlayer({
     }
   }
 
-  const handleOpenFile = useCallback(async () => {
-    try {
-      const filePath = await window.api.selectFile()
-      if (!filePath) return
+  // Shared with the File menu in the title bar, so both paths run identical code.
+  const { openFile: handleOpenFile } = useOpenMedia()
 
-      const folderPath = filePath.substring(
-        0,
-        Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
-      )
-      const scanResult = await window.api.scanFolder(folderPath)
-
-      const anime: Anime = {
-        id: uuidv4(),
-        name: scanResult.name,
-        path: scanResult.path,
-        episodes: scanResult.episodes
-      }
-
-      setPlaylist(anime.episodes)
-      const target = anime.episodes.find((ep) => ep.filePath === filePath) ?? anime.episodes[0]
-      if (target) {
-        playEpisode(target)
-        setCenterMode('player')
-      }
-    } catch (err) {
-      console.error('Failed to open file', err)
-    }
-  }, [playEpisode, setPlaylist, setCenterMode])
+  // Episode browsing mode — full-width episode grid, flush against the library
+  // list. Handled here (rather than in App) so the player's hooks stay mounted,
+  // matching how library-settings mode already works.
+  if (centerMode === 'episodes') {
+    return <EpisodeList variant="grid" />
+  }
 
   // Library settings mode — show settings panel instead of player/landing
   if (centerMode === 'library-settings') {

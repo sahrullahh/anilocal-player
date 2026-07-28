@@ -8,6 +8,7 @@ import { registerDiscordRpcIpc } from './ipc/discord-rpc.ipc'
 import { registerOpenWithIpc } from './ipc/open-with.ipc'
 import { registerThumbnailIpc } from './ipc/thumbnail.ipc'
 import { registerUpdaterIpc } from './ipc/updater.ipc'
+import { registerWindowIpc } from './ipc/window.ipc'
 import { discordRpcService } from './services/discord-rpc.service'
 import { embeddedSubtitleService } from './services/embedded-subtitle.service'
 import path from 'path'
@@ -59,6 +60,7 @@ app.on('ready', () => {
   registerOpenWithIpc()
   registerThumbnailIpc()
   registerUpdaterIpc()
+  registerWindowIpc()
 
   void discordRpcService.connect()
 

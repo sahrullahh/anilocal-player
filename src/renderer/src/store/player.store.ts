@@ -19,7 +19,7 @@ interface PlayerState {
 
   // Progress & Skip
   updateProgress: (currentTime: number, duration: number) => Promise<void>
-  updateSkipData: (data: SkipTimestamps) => Promise<void>
+  updateSkipData: (data: SkipTimestamps, targetFilePath?: string) => Promise<void>
   clearSkipForEpisode: (filePath: string) => Promise<void>
   clearAllSkipData: (filePaths?: string[]) => Promise<void>
 
@@ -100,11 +100,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     window.api.saveProgress(newProgressData).catch(console.error)
   },
 
-  updateSkipData: async (data) => {
-    const { currentEpisode } = get()
-    if (!currentEpisode) return
+  updateSkipData: async (data, targetFilePath) => {
+    // Prefer an explicit target (used by "Apply to episode(s)" in Library
+    // Settings) so we never have to mutate currentEpisode — mutating it would
+    // trigger App's playback effect and collapse the sidebars. Fall back to the
+    // currently-playing episode when no target is given.
+    const filePath = targetFilePath ?? get().currentEpisode?.filePath
+    if (!filePath) return
 
-    const newSkipData = { [currentEpisode.filePath]: data }
+    const newSkipData = { [filePath]: data }
 
     set((state) => ({
       skipData: { ...state.skipData, ...newSkipData }

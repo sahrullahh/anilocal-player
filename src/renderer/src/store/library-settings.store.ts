@@ -5,10 +5,11 @@ import type { Anime, Episode, SkipPack, SkipPackEntry, EpisodeMappings } from '.
 /**
  * Possible "center area" modes:
  * - 'landing'          : default startup screen
- * - 'library-settings' : anime selected, showing settings before playing
+ * - 'episodes'         : folder picked — episodes browsed full-width as a grid
+ * - 'library-settings' : settings for the folder; episodes move to the right sidebar
  * - 'player'           : video is actively playing
  */
-export type CenterMode = 'landing' | 'library-settings' | 'player'
+export type CenterMode = 'landing' | 'episodes' | 'library-settings' | 'player'
 
 interface LibrarySettingsState {
   centerMode: CenterMode
@@ -48,11 +49,13 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>((set, get) =
 
   setCenterMode: (mode) => set({ centerMode: mode }),
 
+  // Picking a folder now lands on the full-width episode grid. Settings are one
+  // click away from there, and that is when the episode list becomes a sidebar.
   selectAnime: (anime) =>
     set({
       selectedAnime: anime,
       selectedEpisode: null,
-      centerMode: 'library-settings'
+      centerMode: 'episodes'
     }),
 
   selectEpisode: (episode) => set({ selectedEpisode: episode }),

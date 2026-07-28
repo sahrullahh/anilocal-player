@@ -62,6 +62,12 @@ export type ElectronAPI = {
   saveSkipData: (data: Record<string, any>) => Promise<Record<string, any>>
   deleteSkipData: (keys?: string[]) => Promise<Record<string, any>>
   openFolder: (folderPath: string) => Promise<void>
+  setTitleBarColors: (colors: {
+    color: string
+    symbolColor: string
+    dark: boolean
+  }) => Promise<void>
+  closeWindow: () => Promise<void>
   convertSrtToVtt: (path: string) => Promise<string>
   toFileUrl: (path: string) => Promise<string>
   readSubtitleFile: (path: string) => Promise<string>

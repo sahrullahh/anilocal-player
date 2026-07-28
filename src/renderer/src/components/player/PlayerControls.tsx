@@ -170,7 +170,10 @@ export function PlayerControls({
               <input
                 type="range" min="0" max="1" step="0.01" value={volume}
                 onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-                className="w-16 h-1 bg-dark-700 rounded-full cursor-pointer accent-blue-600"
+                aria-label="Volume"
+                // Feeds the filled portion of the track.
+                style={{ ['--range-fill' as string]: `${(isMuted ? 0 : volume) * 100}%` }}
+                className="w-16 cursor-pointer"
               />
             </div>
           </div>
