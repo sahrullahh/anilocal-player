@@ -10,7 +10,10 @@ function toHex(cssColor: string): string | null {
   const match = cssColor.match(/^rgba?\(([^)]+)\)$/)
   if (!match) return /^#[0-9a-f]{3,8}$/i.test(cssColor) ? cssColor : null
 
-  const parts = match[1].split(/[\s,/]+/).filter(Boolean).map(Number)
+  const parts = match[1]
+    .split(/[\s,/]+/)
+    .filter(Boolean)
+    .map(Number)
   if (parts.length < 3 || parts.some((n) => Number.isNaN(n))) return null
 
   const [r, g, b] = parts
@@ -89,11 +92,11 @@ export function TitleBar() {
         src={appLogo}
         alt=""
         draggable={false}
-        className="h-4 w-4 shrink-0 select-none object-contain"
+        className="h-5 w-5 shrink-0 select-none object-contain"
       />
       <span
         ref={labelRef}
-        className="hidden shrink-0 truncate text-caption font-medium tracking-wide text-content-tertiary sm:block"
+        className="hidden shrink-0 mt-0.8 truncate text-caption font-medium tracking-wide text-content-tertiary sm:block"
       >
         AniLocal Player
       </span>

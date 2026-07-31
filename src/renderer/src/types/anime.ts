@@ -62,6 +62,8 @@ export type Anime = {
   name: string
   path: string
   episodes: Episode[]
+  /** Pinned to the Favorites group at the top of the library sidebar. */
+  favorite?: boolean
 }
 
 // ─── Player State ─────────────────────────────────────────────────────────────

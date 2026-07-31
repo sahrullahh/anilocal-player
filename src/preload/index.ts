@@ -55,6 +55,7 @@ export type LibraryRecord = {
   name: string
   path: string
   episodes: EpisodeRecord[]
+  favorite?: boolean
 }
 
 export type DiscordActivityPayload = {
